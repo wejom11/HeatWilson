@@ -83,9 +83,9 @@ contains
         integer(ini_kind) :: m          ! loop index
         integer(ini_kind) :: number
 
-        if(allocated(ele_int%inte_coord)) then
-            call error("inte_coord has been allocated!")
-        end if
+        ! if(allocated(ele_int%inte_coord)) then
+        !     call error("inte_coord has been allocated!")
+        ! end if
         
         dim = size(order)
         intp_num = order(1)

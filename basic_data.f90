@@ -38,12 +38,12 @@ module basic_data
         real(real_kind), allocatable :: diff_shape2d_local(:,:,:)   ! derivative of shape function of integration point 
                                                                     ! with local coordinate
         type(integr_num), allocatable :: inte_coord(:)              ! the coordinate of integration point
-        integer(ini_kind) intep_num                                 ! the number of integral points
+        integer(ini_kind) :: intep_num = 0                          ! the number of integral points
     end type ele_int_info
 
     type ele_prop_info
         integer(ini_kind), allocatable :: node_tags(:)      ! the list of element node tags
-        real(real_kind), allocatable :: static_k            ! the constant of the coefficient of heat conduction
+        real(real_kind) static_k                            ! the constant of the coefficient of heat conduction
     end type ele_prop_info
 
     type tem_bdr
@@ -78,7 +78,8 @@ module basic_data
     ! end interface
 
 contains
-    subroutine error(err_msg)       ! show the error message
+    ! show the error message
+    subroutine error(err_msg)
         character(*), intent(in) :: err_msg
         print *, err_msg
         stop
@@ -98,7 +99,7 @@ contains
 
     subroutine num2str(num, str)
         integer(ini_kind), intent(in) :: num
-        character(word_kind), intent(out) :: str
+        character(word_kind), intent(inout) :: str
         write(str, "(I0)") num
         ! print *, str
     end subroutine num2str

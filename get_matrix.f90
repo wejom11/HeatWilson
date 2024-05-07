@@ -17,20 +17,40 @@ contains
     end subroutine get_K_ele
 
     ! get the heat conduction matrix of an element
-    subroutine get_HCM_ele(ele_info,  HCM_ele)
+    subroutine get_HCM_ele(ele_info,  HCM_ele, check)
         type(element_info), intent(in) :: ele_info
         real(real_kind), intent(inout) :: HCM_ele(:)
+        logical, optional :: check
 
         integer(ini_kind) i             ! loop index
         integer(ini_kind) j             ! loop index
-        integer(ini_kind) posi
+        integer(ini_kind) l
+        integer(ini_kind) :: posi = 1
+        real(real_kind) k
         real(real_kind) int_val
+        logical :: checked
 
         if(ele_info%this_eti%heat_cond_num .ne. size(HCM_ele)) call error("K_ele has the wrong size!")
+        if(present(check)) then
+            checked = check
+        end if
+        if(checked) then
+           if(.not. allocated(ele_info%epi%static_k)) call error("")
+           if(.not. allocated(ele_info%eii%diff_shape2d_local)) call error("")
+           if(ele_info%eii%intep_num .eq. 0) call error("")
+           if(.not. associated(ele_info%this_eti)) call error("")
+        end if
 
+        k = ele_info%epi%static_k
         do i = 1, ele_info%this_eti%node_num
             do j = i, ele_info%this_eti%node_num
-                
+                int_val = 0.0
+                do l = 1, ele_info%eii%intep_num
+                    int_val = int_val + k * sum(ele_info%eii%diff_shape2d_local(:,i,l) * &
+                        ele_info%eii%diff_shape2d_local(:,j,l)) * ele_info%eii%inte_coord(l)%weight
+                end do
+                HCM_ele(posi) = int_val
+                posi = posi + 1
             end do
         end do
 

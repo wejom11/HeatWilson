@@ -7,7 +7,7 @@ contains
         real(real_kind), intent(in) :: mat(:,:)
         real(real_kind), intent(in) :: b(:)
         character(word_kind), intent(in), optional :: option
-        real(real_kind),intent(out) :: x(:)
+        real(real_kind),intent(inout) :: x(:)
         character(word_kind) options                ! storage the option information
         integer(ini_kind) :: n                      ! matrix dimension
         real(real_kind), allocatable :: L(:)        ! lower matrix
@@ -73,8 +73,8 @@ contains
     subroutine LU_decmp(mat,L,U)
 
         real(real_kind), intent(in), dimension(:,:) :: mat(:,:)
-        real(real_kind), intent(out), dimension(:) :: L(:)
-        real(real_kind), intent(out), dimension(:) :: U(:)
+        real(real_kind), intent(inout), dimension(:) :: L(:)
+        real(real_kind), intent(inout), dimension(:) :: U(:)
         
         integer(ini_kind) N
         integer(ini_kind) i
