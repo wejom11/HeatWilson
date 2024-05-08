@@ -4,23 +4,6 @@ module integration
     implicit none
     
 contains
-    ! guass integration
-    pure function gauss_int(int_weight, fun_val) result(int_ans)
-        type(integr_num), intent(in) :: int_weight(:)
-        real(real_kind), intent(in) :: fun_val(:)
-        real(real_kind) :: int_ans
-
-        integer(ini_kind) i         ! loop index
-
-        if(size(int_weight) .ne. size(fun_val)) error stop
-
-        int_ans = 0.0
-        do i = 1, size(int_weight)
-            int_ans = int_ans + int_weight(i)%weight * fun_val(i)
-        end do
-        return
-    end function gauss_int
-
     subroutine init_shape2d(ele_types, ele_int)
         type(ele_type_info), intent(in) :: ele_types
         type(ele_int_info), intent(inout) :: ele_int
@@ -83,9 +66,9 @@ contains
         integer(ini_kind) :: m          ! loop index
         integer(ini_kind) :: number
 
-        ! if(allocated(ele_int%inte_coord)) then
-        !     call error("inte_coord has been allocated!")
-        ! end if
+        if(allocated(ele_int%inte_coord)) then
+            call error("inte_coord has been allocated!")
+        end if
         
         dim = size(order)
         intp_num = order(1)

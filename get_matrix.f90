@@ -35,7 +35,6 @@ contains
             checked = check
         end if
         if(checked) then
-           if(.not. allocated(ele_info%epi%static_k)) call error("")
            if(.not. allocated(ele_info%eii%diff_shape2d_local)) call error("")
            if(ele_info%eii%intep_num .eq. 0) call error("")
            if(.not. associated(ele_info%this_eti)) call error("")
