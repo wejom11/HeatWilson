@@ -120,7 +120,6 @@ contains
                     ele_int%diff_shape2d(:,i,j))
             end do
         end do
-        deallocate(ele_int%diff_shape2d)
     end subroutine natcd2lccd
 
 end module integration

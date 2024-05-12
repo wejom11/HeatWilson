@@ -1,5 +1,5 @@
 module mat_eqn_slove
-    use basic_data
+    use solver_data
     implicit none
 
 contains
@@ -122,4 +122,44 @@ contains
         end do
     end subroutine LU_decmp
 
+    subroutine cholesky(mat)
+        type(spa_sym_mat), intent(inout) :: mat
+
+        integer(ini_kind) i             ! loop index
+        integer(ini_kind) j
+        integer(ini_kind) k
+        integer(ini_kind) p
+        integer(ini_kind), allocatable :: unzero_line(:)
+        integer(ini_kind), allocatable :: lenth(:)
+
+        allocate(lenth(size(mat%diag_pst)-1), unzero_line(size(mat%diag_pst)-1))
+        do concurrent (i = 1:size(mat%diag_pst) - 1)
+            lenth(i) = mat%diag_pst(i+1) - mat%diag_pst(i)
+            unzero_line(i) = i - lenth(i) + 1
+            p = unzero_line(i)
+            do concurrent (j = mat%diag_pst(i+1)-1:mat%diag_pst(i):-1)
+                do concurrent (k = max(unzero_line(p), unzero_line(i)):p-1)
+                    mat%unzero(j) = mat%unzero(j) - mat%unzero(mat%diag_pst(i)+i-k) * &
+                        mat%unzero(mat%diag_pst(p)+p-k) / mat%unzero(mat%diag_pst(k))
+                end do
+                p = p + 1
+            end do
+        end do
+
+        ! above algorithm may not work in some cases. if so, use below instead of the above.
+        ! do i = 1, size(mat%diag_pst) - 1
+        !     lenth(i) = mat%diag_pst(i+1) - mat%diag_pst(i)
+        !     unzero_line(i) = i - lenth(i) + 1
+        !     p = unzero_line(i)
+        !     do j = mat%diag_pst(i+1)-1, mat%diag_pst(i), -1 
+        !         do k = max(unzero_line(p), unzero_line(i)), p-1
+        !             mat%unzero(j) = mat%unzero(j) - mat%unzero(mat%diag_pst(i)+i-k) * &
+        !                 mat%unzero(mat%diag_pst(p)+p-k) / mat%unzero(mat%diag_pst(k))
+        !         end do
+        !         p = p + 1
+        !     end do
+        ! end do
+
+        deallocate(lenth,unzero_line)
+    end subroutine cholesky
 end module mat_eqn_slove
