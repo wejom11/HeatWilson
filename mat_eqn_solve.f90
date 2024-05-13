@@ -129,21 +129,39 @@ contains
         integer(ini_kind) j
         integer(ini_kind) k
         integer(ini_kind) p
+        integer(ini_kind) SI
+        integer(ini_kind) NU
+        integer(ini_kind) NL
+        integer(ini_kind) LI
+        integer(ini_kind) LP
+        ! integer(ini_kind) LK
         integer(ini_kind), allocatable :: unzero_line(:)
-        integer(ini_kind), allocatable :: lenth(:)
+        real(real_kind) temp
 
-        allocate(lenth(size(mat%diag_pst)-1), unzero_line(size(mat%diag_pst)-1))
-        do concurrent (i = 1:size(mat%diag_pst) - 1)
-            lenth(i) = mat%diag_pst(i+1) - mat%diag_pst(i)
-            unzero_line(i) = i - lenth(i) + 1
+        SI = size(mat%diag_pst) - 1
+        allocate(unzero_line(SI))
+        do concurrent (i = 1:SI)
+            NU = mat%diag_pst(i+1) - 1
+            NL = mat%diag_pst(i)
+            LI = NL + i
+            unzero_line(i) = i - NU + NL
             p = unzero_line(i)
-            do concurrent (j = mat%diag_pst(i+1)-1:mat%diag_pst(i):-1)
+            do concurrent (j = NU:NL+1:-1)
+                LP = mat%diag_pst(p) + p
+                temp = 0.0
                 do concurrent (k = max(unzero_line(p), unzero_line(i)):p-1)
-                    mat%unzero(j) = mat%unzero(j) - mat%unzero(mat%diag_pst(i)+i-k) * &
-                        mat%unzero(mat%diag_pst(p)+p-k) / mat%unzero(mat%diag_pst(k))
+                    temp = temp + mat%unzero(LI-k) * &
+                        mat%unzero(LP-k) / mat%unzero(mat%diag_pst(k))
                 end do
+                mat%unzero(j) = mat%unzero(j) - temp
                 p = p + 1
             end do
+
+            temp = 0.0
+            do concurrent (k = unzero_line(i):i-1)
+                temp = temp + mat%unzero(LI-k) ** 2 / mat%unzero(mat%diag_pst(k))
+            end do
+            mat%unzero(NL) = mat%unzero(NL) - temp
         end do
 
         ! above algorithm may not work in some cases. if so, use below instead of the above.
@@ -160,6 +178,7 @@ contains
         !     end do
         ! end do
 
-        deallocate(lenth,unzero_line)
+        deallocate(unzero_line)
     end subroutine cholesky
+
 end module mat_eqn_slove

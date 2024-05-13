@@ -30,14 +30,15 @@ contains
         real(real_kind) int_val
         logical :: checked
 
-        if(ele_info%this_eti%heat_cond_num .ne. size(HCM_ele)) call error("K_ele has the wrong size!")
+        
         if(present(check)) then
             checked = check
         end if
         if(checked) then
-           if(.not. allocated(ele_info%eii%diff_shape2d_local)) call error("")
-           if(ele_info%eii%intep_num .eq. 0) call error("")
-           if(.not. associated(ele_info%this_eti)) call error("")
+            if(ele_info%this_eti%heat_cond_num .ne. size(HCM_ele)) call error("K_ele has the wrong size!")
+            if(.not. allocated(ele_info%eii%diff_shape2d_local)) call error("")
+            if(ele_info%eii%intep_num .eq. 0) call error("")
+            if(.not. associated(ele_info%this_eti)) call error("")
         end if
 
         k = ele_info%epi%static_k
