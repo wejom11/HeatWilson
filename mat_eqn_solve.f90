@@ -122,8 +122,10 @@ contains
         end do
     end subroutine LU_decmp
 
-    subroutine cholesky(mat)
+    subroutine cholesky(mat, x, b)
         type(spa_sym_mat), intent(inout) :: mat
+        real(real_kind), intent(inout) :: x(:)
+        real(real_kind), intent(in) :: b(:)
 
         integer(ini_kind) i             ! loop index
         integer(ini_kind) j
@@ -137,6 +139,7 @@ contains
         ! integer(ini_kind) LK
         integer(ini_kind), allocatable :: unzero_line(:)
         real(real_kind) temp
+        real(real_kind), allocatable :: y(:)
 
         SI = size(mat%diag_pst) - 1
         allocate(unzero_line(SI))
@@ -178,7 +181,24 @@ contains
         !     end do
         ! end do
 
-        deallocate(unzero_line)
+        allocate(y(SI))
+        do i = 1, SI
+            temp = 0.0
+            do j = unzero_line(i), i-1
+                temp = temp + y(j) * mat%unzero(mat%diag_pst(i)+i-j)
+            end do
+            y(i) = (b(i) - temp) / mat%unzero(mat%diag_pst(i))
+        end do
+
+        do i = SI, 1, -1
+            temp = 0.0
+            do j = SI, i+1, -1
+                if(unzero_line(j) .gt. i) cycle
+                temp = temp + x(j) * mat%unzero(mat%diag_pst(j)+j-i)
+            end do
+            x(i) = y(i) - temp / mat%unzero(mat%diag_pst(i))
+        end do
+
     end subroutine cholesky
 
 end module mat_eqn_slove

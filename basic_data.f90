@@ -9,6 +9,8 @@ module basic_data
     integer(4), parameter :: ini_kind = selected_int_kind(8)
     integer(4), parameter :: real_kind = selected_real_kind(p=15)
     integer(4), parameter :: word_kind = 32
+    integer(4), parameter :: line_kind = 128
+    integer(4), parameter :: ctr_file_io = 11
     real(real_kind), parameter :: real_eps = epsilon(1.0_real_kind)
 
     ! define the Gaussian point and its weight
@@ -22,6 +24,19 @@ module basic_data
         real(real_kind), allocatable :: coord(:)    ! natural coordinate of integration point
         real(real_kind) weight                      ! the gauss integration weight
     end type integr_num
+
+    type material
+        character(word_kind) :: types = ""
+        real(real_kind) E
+        real(real_kind) v
+        real(real_kind) static_k                            ! the constant of the coefficient of heat conduction
+        real(real_kind) rho                                 ! the desnity
+    end type material
+
+    type geometry
+        character(word_kind) :: types = ""
+        real(real_kind) thickness
+    end type geometry
 
     type ele_type_info
         integer(ini_kind) ele_type      ! the tag of element type(1 present 'RECTANGLE4')
@@ -43,14 +58,20 @@ module basic_data
 
     type ele_prop_info
         integer(ini_kind), allocatable :: node_tags(:)      ! the list of element node tags
-        real(real_kind) static_k                            ! the constant of the coefficient of heat conduction
+        type(material), pointer :: ele_mater => null()
+        type(geometry), pointer :: ele_geo => null()
     end type ele_prop_info
 
-    type tem_bdr
+    type bdr
         logical :: is_bdr = .false.
-        real(real_kind), allocatable :: heat_flux(:,:)          ! heat flow boundry conditions(first number present the line to add 
-                                                                ! HFBC, e.g. 1 present the line start from node1 to 2)[anti-clkws]
-        real(real_kind), allocatable :: convection(:,:)         ! convection boundry conditions
+        integer(ini_kind), allocatable :: bdr_locate(:)
+        real(real_kind), allocatable :: bdr_info(:,:)
+    end type bdr
+
+    type tem_bdr
+        type(bdr) heat_flux             ! heat flow boundry conditions(first number present the line to add 
+                                        ! HFBC, e.g. 1 present the line start from node1 to 2)[anti-clkws]
+        type(bdr) convection            ! convection boundry conditions
     end type tem_bdr
 
     type ele_bdr_info
@@ -70,6 +91,8 @@ module basic_data
     real(real_kind), allocatable :: nodecoord2d(:,:)                ! node coordinate 2d
     real(real_kind), allocatable :: node_temperature(:)             ! node initial temperature 2d
     type(ele_type_info), target :: ele_type_lib(ele_type_num)       ! the assemble of the element types
+    type(material), allocatable, target :: ele_mater_lib(:)
+    type(geometry), allocatable, target :: ele_geo_lib(:)
     type(element_info), allocatable :: elements(:)                  ! all of the elements information
 
     ! interface show

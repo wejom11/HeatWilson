@@ -10,6 +10,7 @@ module solver_data
     type(spa_sym_mat) :: stiff_mat                          ! stiffness matrix
     type(spa_sym_mat) :: heat_cdt_mat                       ! heat conduction matrix
     real(real_kind), allocatable :: temper_force_vec(:)     ! the temperature force vector
+    type(bdr) given_temp
 
 contains
 

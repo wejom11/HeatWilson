@@ -1,4 +1,4 @@
-module get_metrix
+module get_matrix
     use solver_data
     implicit none
     
@@ -17,40 +17,47 @@ contains
     end subroutine get_K_ele
 
     ! get the heat conduction matrix of an element
-    subroutine get_HCM_ele(ele_info,  HCM_ele, check)
+    subroutine get_HCM_ele(ele_info, check)
         type(element_info), intent(in) :: ele_info
-        real(real_kind), intent(inout) :: HCM_ele(:)
         logical, optional :: check
 
         integer(ini_kind) i             ! loop index
         integer(ini_kind) j             ! loop index
         integer(ini_kind) l
-        integer(ini_kind) :: posi = 1
+        integer(ini_kind) posi
+        integer(ini_kind) tag_i
+        integer(ini_kind) tag_j
         real(real_kind) k
         real(real_kind) int_val
         logical :: checked
 
-        
         if(present(check)) then
             checked = check
         end if
         if(checked) then
-            if(ele_info%this_eti%heat_cond_num .ne. size(HCM_ele)) call error("K_ele has the wrong size!")
             if(.not. allocated(ele_info%eii%diff_shape2d_local)) call error("")
             if(ele_info%eii%intep_num .eq. 0) call error("")
             if(.not. associated(ele_info%this_eti)) call error("")
         end if
 
-        k = ele_info%epi%static_k
-        do i = 1, ele_info%this_eti%node_num
-            do j = i, ele_info%this_eti%node_num
+        k = ele_info%epi%ele_mater%static_k
+        do j = 1, ele_info%this_eti%node_num
+            tag_j = ele_info%epi%node_tags(j)
+            do i = j, 1, -1
+                tag_i = ele_info%epi%node_tags(i)
                 int_val = 0.0
                 do l = 1, ele_info%eii%intep_num
                     int_val = int_val + k * sum(ele_info%eii%diff_shape2d_local(:,i,l) * &
                         ele_info%eii%diff_shape2d_local(:,j,l)) * ele_info%eii%inte_coord(l)%weight
                 end do
-                HCM_ele(posi) = int_val
-                posi = posi + 1
+                if(tag_i .lt. tag_j) then
+                    posi = heat_cdt_mat%diag_pst(tag_j) + tag_j - tag_i
+                elseif(tag_i .gt. tag_j) then
+                    posi = heat_cdt_mat%diag_pst(tag_i) + tag_i - tag_j
+                else
+                    posi = heat_cdt_mat%diag_pst(tag_i)
+                end if
+                heat_cdt_mat%unzero(posi) = heat_cdt_mat%unzero(posi) + int_val
             end do
         end do
 
@@ -78,7 +85,7 @@ contains
         if(n .ne. ele%this_eti%dof) call error('Jacobi dimension is incorrect!')
         if(num_pts .ne. ele%eii%intep_num) call error('the numbre of integral points is incorrect!')
 
-        do i = 1, num_pts
+        do concurrent (i = 1:num_pts)
             do j = 1, n
                 do k = 1, n
                     matrix_ele = 0.0
@@ -93,4 +100,14 @@ contains
         
     end subroutine get_Jacobi
 
-end module get_metrix
+    subroutine get_TFV(ele_info)
+        type(element_info), intent(in) :: ele_info
+
+        real(real_kind) rho
+        !------
+        ! to be continued
+        !------        
+        
+    end subroutine get_TFV
+
+end module get_matrix
