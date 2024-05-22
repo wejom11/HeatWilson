@@ -1,5 +1,4 @@
 module integration
-    use basic_data
     use mat_eqn_slove
     implicit none
     

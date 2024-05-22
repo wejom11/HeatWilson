@@ -1,7 +1,6 @@
 module solver_kernel
     use integration
     use get_matrix
-    use mat_eqn_slove
     implicit none
     
 contains
@@ -41,7 +40,6 @@ contains
         end do
         deallocate(matrix)
         allocate(heat_cdt_mat%diag_pst(total_node+1))
-        ! print *, lenth(:)            
         heat_cdt_mat%diag_pst(1) = 1
         do i = 1, total_node
             heat_cdt_mat%diag_pst(i+1) = heat_cdt_mat%diag_pst(i) + lenth(i)
@@ -66,7 +64,7 @@ contains
         if(allocated(given_temp%bdr_info)) then
             do i = 1, size(given_temp%bdr_locate)
                 heat_cdt_mat%unzero(heat_cdt_mat%diag_pst(given_temp%bdr_locate(i))) = max_val
-                temper_force_vec(given_temp%bdr_locate(i)) = max_val*given_temp%bdr_info(1,i)
+                temper_force_vec(given_temp%bdr_locate(i)) = max_val*given_temp%bdr_info(i,1)
             end do
         end if
 
@@ -85,6 +83,7 @@ contains
         call init_shape2d(ele_info%this_eti, ele_info%eii)
         call get_Jacobi(ele_info, Jaco)
         call natcd2lccd(ele_info%eii, ele_info%this_eti, Jaco)
+        deallocate(Jaco)
         
     end subroutine init_int
 

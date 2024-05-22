@@ -1,5 +1,5 @@
 module read
-    use basic_data
+    use solver_data
     implicit none
 
     private remove_blank_L, remove_first_word, read_line
@@ -314,6 +314,43 @@ contains
 
     end subroutine read_basic
 
+    subroutine read_bdr
+        character(line_kind) line_msg
+        character(word_kind) command
+        integer(ini_kind) i
+        integer(ini_kind) times
+        integer(ini_kind) number
+        real(real_kind) val
+        logical :: ex = .false.
+
+        do while(.not. ex)
+            line_msg = read_line(ctr_file_io)
+            read(line_msg, *) command
+            call remove_first_word(line_msg)
+            select case(command)
+                case("GIVEN_TEMP")
+                    read(line_msg, *) times
+                    allocate(given_temp%bdr_info(times,1), given_temp%bdr_locate(times))
+                    do i = 1, times
+                        line_msg = read_line(ctr_file_io)
+                        read(line_msg, *) number, val
+                        given_temp%bdr_locate(i) = number
+                        given_temp%bdr_info(i,1) =  val
+
+                    end do
+
+                case("END")
+                    ex = .true.
+
+                case default
+                    call error("syntax error: no such command " // trim(command))
+
+            end select
+
+        end do
+        
+    end subroutine read_bdr
+
     subroutine read_solve
         character(line_kind) line_msg
         character(word_kind) command
@@ -331,6 +368,9 @@ contains
             select case(command)
                 case("BASIC")
                     call read_basic
+
+                case("BOUNDARY")
+                    call read_bdr
 
                 case("SOLUTION")
                     ex = .true.
