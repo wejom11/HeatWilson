@@ -200,5 +200,12 @@ contains
         end do
 
     end subroutine cholesky
+    
+    real(real_kind) function det_2d(mat) result(det)
+        real(real_kind), intent(in) :: mat(2,2)
+    
+        det = mat(1,1) * mat(2,2) - mat(1,2) * mat(2,1)
+        
+    end function det_2d
 
 end module mat_eqn_slove

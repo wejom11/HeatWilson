@@ -106,6 +106,7 @@ contains
 
         integer(ini_kind) i         ! loop index
         integer(ini_kind) j         ! loop index
+        real(real_kind) val
 
         if(allocated(ele_int%diff_shape2d_local)) then
             call error("diff_shape2d_local has been allocated!")
@@ -113,8 +114,11 @@ contains
             allocate(ele_int%diff_shape2d_local(ele_types%dof, ele_types%node_num, ele_int%intep_num))
         end if
 
-        do i = 1, ele_types%node_num
-            do j = 1, ele_int%intep_num
+        
+        do j = 1, ele_int%intep_num
+            val = abs(det_2d(Jacobi(j,:,:)))
+            ele_int%inte_coord(j)%weight = ele_int%inte_coord(j)%weight * val
+            do i = 1, ele_types%node_num
                 call solve_lin_eqn(Jacobi(j,:,:), ele_int%diff_shape2d_local(:,i,j), &
                     ele_int%diff_shape2d(:,i,j))
             end do
