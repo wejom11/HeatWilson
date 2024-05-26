@@ -15,6 +15,7 @@ contains
                 ele_type_lib(1)%node_num = 4
                 ele_type_lib(1)%stiff_num = 36
                 ele_type_lib(1)%heat_cond_num = 10
+                ele_type_lib(1)%wilson_dof = 2
             case default
                 call error("unexpected i number!")
             end select

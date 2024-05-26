@@ -23,6 +23,7 @@ module basic_data
     type integr_num
         real(real_kind), allocatable :: coord(:)    ! natural coordinate of integration point
         real(real_kind) weight                      ! the gauss integration weight
+        real(real_kind) det_J
     end type integr_num
 
     type material
@@ -39,12 +40,13 @@ module basic_data
     end type geometry
 
     type ele_type_info
-        integer(ini_kind) ele_type      ! the tag of element type(1 present 'RECTANGLE4')
-        integer(ini_kind) node_num      ! total number of element nodes
-        integer(ini_kind) stiff_num     ! total number of upper half of stiffness matrix
-        integer(ini_kind) heat_cond_num ! total number of upper half of heat conduction matrix
-        integer(ini_kind) dof           ! defree of freedom
-        character(word_kind) name       ! element type name
+        integer(ini_kind) ele_type              ! the tag of element type(1 present 'RECTANGLE4')
+        integer(ini_kind) node_num              ! total number of element nodes
+        integer(ini_kind) :: wilson_dof = 0
+        integer(ini_kind) stiff_num             ! total number of upper half of stiffness matrix
+        integer(ini_kind) heat_cond_num         ! total number of upper half of heat conduction matrix
+        integer(ini_kind) dof                   ! defree of freedom
+        character(word_kind) name               ! element type name
     end type ele_type_info
     
     type ele_int_info
@@ -54,6 +56,7 @@ module basic_data
                                                                     ! with local coordinate
         type(integr_num), allocatable :: inte_coord(:)              ! the coordinate of integration point
         integer(ini_kind) :: intep_num = 0                          ! the number of integral points
+        real(real_kind) wilson_det
     end type ele_int_info
 
     type ele_prop_info

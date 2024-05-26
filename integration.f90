@@ -11,18 +11,20 @@ contains
         integer(ini_kind) j                             ! loop index
         integer(ini_kind) intp_num                      ! total num of integral point
         real(real_kind) :: na_crd(2,4)                  ! node nature coordinates
+        integer :: is_zerop = 0
 
+        if(ele_types%wilson_dof .ne. 0) is_zerop = 1
         intp_num = ele_int%intep_num
         if(.not. allocated(ele_int%inte_coord)) then
             call error("inte_coord has not been allocated!")
         end if
         if(.not. allocated(ele_int%shape2d)) then
-            allocate(ele_int%shape2d(ele_types%node_num, intp_num))
+            allocate(ele_int%shape2d(ele_types%node_num + ele_types%wilson_dof, intp_num + is_zerop))
         else
             call error("shape2d has been allocated!")
         end if
         if(.not. allocated(ele_int%diff_shape2d)) then
-            allocate(ele_int%diff_shape2d(ele_types%dof, ele_types%node_num, intp_num))
+            allocate(ele_int%diff_shape2d(ele_types%dof, ele_types%node_num + ele_types%wilson_dof, intp_num + is_zerop))
         else
             call error("diff_shape2d has been allocated!")
         end if
@@ -37,15 +39,31 @@ contains
                     ele_int%shape2d(i,j) = (1 + na_crd(1,i) * ele_int%inte_coord(j)%coord(1)) *&
                     (1 + na_crd(2,i) * ele_int%inte_coord(j)%coord(2)) / 4.0
                 end do
-            end do
+            end do            
 
             ! initial diff shape function in integration points
-            do i = 1, ele_types%node_num
-                do j = 1, intp_num
+            do j = 1, intp_num
+                do i = 1, ele_types%node_num
                     ele_int%diff_shape2d(1,i,j) = na_crd(1,i) * (1 + na_crd(2,i) * ele_int%inte_coord(j)%coord(2)) / 4.0
                     ele_int%diff_shape2d(2,i,j) = na_crd(2,i) * (1 + na_crd(1,i) * ele_int%inte_coord(j)%coord(1)) / 4.0
                 end do
             end do
+            
+            if(ele_types%wilson_dof == 2) then
+                do i = 1, intp_num
+                    ele_int%shape2d(ele_types%node_num + 1,i) = (1.0 - ele_int%inte_coord(i)%coord(1) ** 2)
+                    ele_int%shape2d(ele_types%node_num + 2,i) = (1.0 - ele_int%inte_coord(i)%coord(2) ** 2)
+
+                    ele_int%diff_shape2d(1,ele_types%node_num + 1,i) = -2.0 * ele_int%inte_coord(i)%coord(1)
+                    ele_int%diff_shape2d(2,ele_types%node_num + 1,i) = 0.0
+                    ele_int%diff_shape2d(1,ele_types%node_num + 2,i) = 0.0
+                    ele_int%diff_shape2d(2,ele_types%node_num + 2,i) = -2.0 * ele_int%inte_coord(i)%coord(2)
+                end do
+                do i = 1, ele_types%node_num
+                    ele_int%diff_shape2d(1,i,intp_num+1) = na_crd(1,i) / 4.0
+                    ele_int%diff_shape2d(2,i,intp_num+1) = na_crd(2,i) / 4.0
+                end do
+            end if
 
         case default
             call error("no such element type" // trim(ele_types%name))
@@ -98,7 +116,7 @@ contains
     end subroutine init_gauss_pts
     
     ! transfer the diff_shape2d from natrual coordinate to local coordinate,
-    ! deallocate the diff_shape2d
+    ! multiple the |J| with the integral point weight
     subroutine natcd2lccd(ele_int, ele_types, Jacobi)
         type(ele_int_info), intent(inout) :: ele_int
         type(ele_type_info), intent(in) :: ele_types
@@ -111,17 +129,25 @@ contains
         if(allocated(ele_int%diff_shape2d_local)) then
             call error("diff_shape2d_local has been allocated!")
         else
-            allocate(ele_int%diff_shape2d_local(ele_types%dof, ele_types%node_num, ele_int%intep_num))
+            allocate(ele_int%diff_shape2d_local(ele_types%dof, ele_types%node_num + ele_types%wilson_dof, &
+                ele_int%intep_num))
         end if
 
         
         do j = 1, ele_int%intep_num
             val = abs(det_2d(Jacobi(j,:,:)))
-            ele_int%inte_coord(j)%weight = ele_int%inte_coord(j)%weight * val
+            ele_int%inte_coord(j)%det_J = val
             do i = 1, ele_types%node_num
                 call solve_lin_eqn(Jacobi(j,:,:), ele_int%diff_shape2d_local(:,i,j), &
                     ele_int%diff_shape2d(:,i,j))
             end do
+
+            if(ele_types%wilson_dof .ne. 0) then
+                do i = ele_types%node_num + 1, ele_types%node_num + ele_types%wilson_dof
+                    call solve_lin_eqn(Jacobi(j,:,:), ele_int%diff_shape2d_local(:,i,j), &
+                        ele_int%diff_shape2d(:,i,j))
+                end do
+            end if
         end do
     end subroutine natcd2lccd
 
