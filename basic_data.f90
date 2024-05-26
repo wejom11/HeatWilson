@@ -56,7 +56,6 @@ module basic_data
                                                                     ! with local coordinate
         type(integr_num), allocatable :: inte_coord(:)              ! the coordinate of integration point
         integer(ini_kind) :: intep_num = 0                          ! the number of integral points
-        real(real_kind) wilson_det
     end type ele_int_info
 
     type ele_prop_info
