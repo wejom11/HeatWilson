@@ -11,6 +11,7 @@ module basic_data
     integer(4), parameter :: word_kind = 32
     integer(4), parameter :: line_kind = 128
     integer(4), parameter :: ctr_file_io = 11
+    integer(4), parameter :: check = 22
     real(real_kind), parameter :: real_eps = epsilon(1.0_real_kind)
 
     ! define the Gaussian point and its weight
@@ -32,6 +33,7 @@ module basic_data
         real(real_kind) v
         real(real_kind) static_k                            ! the constant of the coefficient of heat conduction
         real(real_kind) rho                                 ! the desnity
+        real(real_kind) alpha
     end type material
 
     type geometry
@@ -60,6 +62,7 @@ module basic_data
 
     type ele_prop_info
         integer(ini_kind), allocatable :: node_tags(:)      ! the list of element node tags
+        real(real_kind), allocatable :: intp_temp(:)
         type(material), pointer :: ele_mater => null()
         type(geometry), pointer :: ele_geo => null()
     end type ele_prop_info
@@ -90,6 +93,7 @@ module basic_data
         type(ele_bdr_info) :: ebi
     end type element_info
 
+    real(real_kind) :: temp_init = 40
     real(real_kind), allocatable :: nodecoord2d(:,:)                ! node coordinate 2d
     real(real_kind), allocatable :: node_temperature(:)             ! node initial temperature 2d
     type(ele_type_info), target :: ele_type_lib(ele_type_num)       ! the assemble of the element types

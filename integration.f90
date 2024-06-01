@@ -19,7 +19,7 @@ contains
             call error("inte_coord has not been allocated!")
         end if
         if(.not. allocated(ele_int%shape2d)) then
-            allocate(ele_int%shape2d(ele_types%node_num + ele_types%wilson_dof, intp_num + is_zerop))
+            allocate(ele_int%shape2d(ele_types%node_num + ele_types%wilson_dof, intp_num))
         else
             call error("shape2d has been allocated!")
         end if

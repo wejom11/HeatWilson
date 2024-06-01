@@ -6,18 +6,84 @@ module solver_kernel
 contains
     subroutine temp_static
         integer(ini_kind) i
+        real(real_kind) max_val
+
+        do i = 1, size(elements)
+            call init_int(elements(i))
+            call get_HCM_ele(elements(i))
+        end do
+
+        if(allocated(given_temp%bdr_info)) then
+            max_val = abs(heat_cdt_mat%unzero(1))
+            do i = 2, size(heat_cdt_mat%diag_pst)
+                if (abs(heat_cdt_mat%unzero(i)) .gt. max_val) max_val = abs(heat_cdt_mat%unzero(i))
+            end do
+            max_val = max_val * 1e6
+
+            do i = 1, size(given_temp%bdr_locate)
+                heat_cdt_mat%unzero(heat_cdt_mat%diag_pst(given_temp%bdr_locate(i))) = max_val
+                temper_force_vec(given_temp%bdr_locate(i)) = max_val*given_temp%bdr_info(i,1)
+            end do
+        end if
+
+        call cholesky(heat_cdt_mat, temp_solved, temper_force_vec)
+
+    end subroutine temp_static
+
+    subroutine Thermal_Stress
+        integer(ini_kind) i
+        integer(4) node_num
+        integer(ini_kind) posi
+        real(real_kind) max_val
+        real(real_kind), allocatable :: K_uu(:,:)
+        real(real_kind), allocatable :: P_u(:)
+        
+        node_num = elements(1)%this_eti%node_num
+        allocate(K_uu(2*node_num, 2*node_num), P_u(2*node_num))
+        do i = 1, size(elements)
+            call get_wilson(elements(i), K_uu, P_u)
+            call get_K_ele(elements(i), K_uu)
+            call get_FV_ele(elements(i), P_u)
+        end do
+        deallocate(K_uu, P_u)
+
+        if(allocated(given_dispU%bdr_info) .or. allocated(given_dispV%bdr_info)) then
+            max_val = abs(stiff_mat%unzero(1))
+            do i = 2, size(stiff_mat%unzero)
+                if (abs(stiff_mat%unzero(i)) .gt. max_val) max_val = abs(stiff_mat%unzero(i))
+            end do
+            max_val = max_val * 1e15
+
+            do i = 1, size(given_dispU%bdr_locate)
+                posi = 2*given_dispU%bdr_locate(i)-1
+                stiff_mat%unzero(stiff_mat%diag_pst(posi)) = max_val
+                force_vec(posi) = max_val * given_dispU%bdr_info(i,1)
+            end do
+
+            do i = 1, size(given_dispV%bdr_locate)
+                posi = 2*given_dispV%bdr_locate(i)
+                stiff_mat%unzero(stiff_mat%diag_pst(posi)) = max_val
+                force_vec(posi) = max_val * given_dispV%bdr_info(i,1)
+            end do
+        end if
+
+        call cholesky(stiff_mat, disp_solved, force_vec)
+        
+    end subroutine Thermal_Stress
+
+    subroutine init_mat
+        integer(ini_kind) i
         integer(ini_kind) j
         integer(ini_kind) k
+        integer(ini_kind) total_node
         integer(4) node_num
-        integer(ini_kind) :: total_node
         integer(ini_kind), allocatable :: lenth(:)
-        integer(4), allocatable :: matrix(:,:)
-        real(real_kind) max_val
-        real(real_kind), allocatable :: temp(:)
+        integer(ini_kind), allocatable :: matrix(:,:)
 
         total_node = size(nodecoord2d,2)
         node_num = elements(1)%this_eti%node_num
-        allocate(lenth(total_node), matrix(total_node, total_node), temp(total_node))
+        allocate(temp_solved(total_node), disp_solved(2*total_node))
+        allocate(lenth(total_node), matrix(total_node, total_node))
         do i = 1, total_node
             do j = 1, total_node
                 matrix(j,i) = 0
@@ -39,39 +105,25 @@ contains
             end do
         end do
         deallocate(matrix)
-        allocate(heat_cdt_mat%diag_pst(total_node+1))
+        allocate(heat_cdt_mat%diag_pst(total_node+1), stiff_mat%diag_pst(2*total_node+1))
         heat_cdt_mat%diag_pst(1) = 1
+        stiff_mat%diag_pst(1) = 1
         do i = 1, total_node
             heat_cdt_mat%diag_pst(i+1) = heat_cdt_mat%diag_pst(i) + lenth(i)
         end do
+        do i = 1, total_node
+            stiff_mat%diag_pst(2*i) = stiff_mat%diag_pst(2*i - 1) + lenth(i) * 2 - 1
+            stiff_mat%diag_pst(2*i + 1) = stiff_mat%diag_pst(2*i) + lenth(i) * 2
+        end do
         deallocate(lenth)
-        allocate(heat_cdt_mat%unzero(heat_cdt_mat%diag_pst(total_node+1)))
-        do concurrent (i = 1:total_node+1)
-            heat_cdt_mat%unzero(i) = 0.0
-        end do
 
-        do i = 1, size(elements)
-            call init_int(elements(i))
-            call get_HCM_ele(elements(i))
-        end do
+        allocate(heat_cdt_mat%unzero(heat_cdt_mat%diag_pst(total_node+1)-1), &
+            stiff_mat%unzero(stiff_mat%diag_pst(2*total_node+1)-1))
 
-        max_val = abs(heat_cdt_mat%unzero(1))
-        do i = 1, total_node+1
-            if (abs(heat_cdt_mat%unzero(i)) .gt. max_val) max_val = abs(heat_cdt_mat%unzero(i))
-        end do
-        max_val = max_val * 100
-
-        if(allocated(given_temp%bdr_info)) then
-            do i = 1, size(given_temp%bdr_locate)
-                heat_cdt_mat%unzero(heat_cdt_mat%diag_pst(given_temp%bdr_locate(i))) = max_val
-                temper_force_vec(given_temp%bdr_locate(i)) = max_val*given_temp%bdr_info(i,1)
-            end do
-        end if
-
-        call cholesky(heat_cdt_mat, temp, temper_force_vec)
-        print *, temp(:)
-
-    end subroutine temp_static
+        heat_cdt_mat%unzero = 0.0
+        stiff_mat%unzero = 0.0
+        
+    end subroutine init_mat
 
     subroutine init_int(ele_info)
         type(element_info), intent(inout) :: ele_info

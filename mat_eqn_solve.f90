@@ -198,8 +198,76 @@ contains
             end do
             x(i) = y(i) - temp / mat%unzero(mat%diag_pst(i))
         end do
+        deallocate(y, unzero_line)
 
     end subroutine cholesky
+
+    function cholesky_mat(mat, b) result(x)
+        real(real_kind), intent(in) :: mat(:,:)
+        real(real_kind), intent(in) :: b(:)
+        real(real_kind), allocatable :: x(:)
+
+        integer(ini_kind) i             ! loop index
+        integer(ini_kind) j
+        integer(ini_kind) k
+        integer(ini_kind) dim
+        ! integer(ini_kind) LK
+        real(real_kind) temp
+        real(real_kind), allocatable :: work_mat(:,:)
+        real(real_kind), allocatable :: y(:)
+
+        dim = size(mat,1)
+        allocate(work_mat(dim,dim))
+        work_mat = mat
+        do concurrent (j = 1:dim)
+            do concurrent (i = 1:j-1)
+                temp = 0.0
+                do concurrent (k = 1:i-1)
+                    temp = temp + work_mat(k,i) * work_mat(k,j) / work_mat(k,k)
+                end do
+                work_mat(i,j) = work_mat(i,j) - temp
+            end do
+
+            temp = 0.0
+            do concurrent (k = 1:j-1)
+                temp = temp + work_mat(k,j) ** 2 / work_mat(k,k)
+            end do
+            work_mat(j,j) = work_mat(j,j) - temp
+        end do
+
+        ! above algorithm may not work in some cases. if so, use below instead of the above.
+        ! do i = 1, size(mat%diag_pst) - 1
+        !     lenth(i) = mat%diag_pst(i+1) - mat%diag_pst(i)
+        !     unzero_line(i) = i - lenth(i) + 1
+        !     p = unzero_line(i)
+        !     do j = mat%diag_pst(i+1)-1, mat%diag_pst(i), -1 
+        !         do k = max(unzero_line(p), unzero_line(i)), p-1
+        !             mat%unzero(j) = mat%unzero(j) - mat%unzero(mat%diag_pst(i)+i-k) * &
+        !                 mat%unzero(mat%diag_pst(p)+p-k) / mat%unzero(mat%diag_pst(k))
+        !         end do
+        !         p = p + 1
+        !     end do
+        ! end do
+
+        allocate(y(dim), x(dim))
+        do i = 1, dim
+            temp = 0.0
+            do j = 1, i-1
+                temp = temp + y(j) * work_mat(j,i)
+            end do
+            y(i) = (b(i) - temp) / work_mat(i,i)
+        end do
+
+        do i = dim, 1, -1
+            temp = 0.0
+            do j = dim, i+1, -1
+                temp = temp + x(j) * work_mat(i,j)
+            end do
+            x(i) = y(i) - temp / work_mat(i,i)
+        end do
+        deallocate(y,work_mat)
+
+    end function cholesky_mat
     
     real(real_kind) function det_2d(mat) result(det)
         real(real_kind), intent(in) :: mat(2,2)
@@ -207,5 +275,47 @@ contains
         det = mat(1,1) * mat(2,2) - mat(1,2) * mat(2,1)
         
     end function det_2d
+
+    function mat_mul(mat1, mat2) result(mat_pro)
+        real(real_kind), intent(in) :: mat1(:,:), mat2(:,:)
+        real(real_kind), allocatable :: mat_pro(:,:)
+        integer :: m1
+        integer :: n1
+        integer :: m2
+        integer :: n2
+        integer(ini_kind) i
+        integer(ini_kind) j
+        m1 = size(mat1,1)
+        n1 = size(mat1,2)
+        m2 = size(mat2,1)
+        n2 = size(mat2,2)
+        allocate(mat_pro(m1,n2))
+        if(n1 .ne. m2) call error("matrix dimension not match")
+
+        do i = 1, m1
+            do j = 1, n2
+                mat_pro(i,j) = sum(mat1(i,:) * mat2(:,j))
+            end do
+        end do
+
+    end function mat_mul
+
+    ! sym upper mat
+    subroutine sym_mat(mat)
+        real(real_kind), intent(inout) :: mat(:,:)
+
+        integer(ini_kind) dim
+        integer(ini_kind) i
+        integer(ini_kind) j
+        dim = size(mat,1)
+        if(dim .ne. size(mat,2)) call error("not a square matrix")
+
+        do j = 1, dim-1
+            do i = j+1, dim
+                mat(i,j) = mat(j,i)
+            end do
+        end do
+        
+    end subroutine sym_mat
 
 end module mat_eqn_slove

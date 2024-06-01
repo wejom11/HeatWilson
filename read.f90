@@ -220,6 +220,10 @@ contains
                     read(line_msg,*) val
                     ele_mater_lib(number)%rho = val
 
+                case("alpha")
+                    read(line_msg,*) val
+                    ele_mater_lib(number)%alpha = val
+
                 case("END")
                     read(line_msg,*) str
                     if(str .eq. "MATERIALS") ex = .true.
@@ -339,6 +343,28 @@ contains
 
                     end do
 
+                case("GIVEN_DISPU")
+                    read(line_msg, *) times
+                    allocate(given_dispU%bdr_info(times,1), given_dispU%bdr_locate(times))
+                    do i = 1, times
+                        line_msg = read_line(ctr_file_io)
+                        read(line_msg, *) number, val
+                        given_dispU%bdr_locate(i) = number
+                        given_dispU%bdr_info(i,1) =  val
+
+                    end do
+
+                case("GIVEN_DISPV")
+                    read(line_msg, *) times
+                    allocate(given_dispV%bdr_info(times,1), given_dispV%bdr_locate(times))
+                    do i = 1, times
+                        line_msg = read_line(ctr_file_io)
+                        read(line_msg, *) number, val
+                        given_dispV%bdr_locate(i) = number
+                        given_dispV%bdr_info(i,1) =  val
+
+                    end do
+                
                 case("END")
                     ex = .true.
 
