@@ -179,6 +179,55 @@ contains
         
     end subroutine get_HCM_ele
 
+    subroutine get_C_ele(ele_info)
+        type(element_info), intent(in) :: ele_info
+        
+        integer(ini_kind) i             ! loop index
+        integer(ini_kind) j             ! loop index
+        integer(ini_kind) l
+        integer(ini_kind) posi
+        integer(ini_kind) tag_i
+        integer(ini_kind) tag_j
+        real(real_kind) rhoc
+        real(real_kind) int_val
+        ! logical :: checked
+
+        ! if(present(check)) then
+        !     checked = check
+        ! end if
+        ! if(checked) then
+        !     if(.not. allocated(ele_info%eii%diff_shape2d_local)) call error("")
+        !     if(ele_info%eii%intep_num .eq. 0) call error("")
+        !     if(.not. associated(ele_info%this_eti)) call error("")
+        ! end if
+
+        rhoc = ele_info%epi%ele_mater%rho * ele_info%epi%ele_mater%c
+        do j = 1, ele_info%this_eti%node_num
+            tag_j = ele_info%epi%node_tags(j)
+            do i = j, 1, -1
+                tag_i = ele_info%epi%node_tags(i)
+                int_val = 0.0
+                do l = 1, ele_info%eii%intep_num
+                    int_val = int_val + ele_info%eii%shape2d(i,l) * ele_info%eii%shape2d(j,l) * &
+                        ele_info%eii%inte_coord(l)%weight * ele_info%eii%inte_coord(l)%det_J
+                end do
+                if(tag_i .lt. tag_j) then
+                    posi = Capacity_mat%diag_pst(tag_j) + tag_j - tag_i
+                elseif(tag_i .gt. tag_j) then
+                    posi = Capacity_mat%diag_pst(tag_i) + tag_i - tag_j
+                else
+                    posi = Capacity_mat%diag_pst(tag_i)
+                end if
+                Capacity_mat%unzero(posi) = Capacity_mat%unzero(posi) + int_val * rhoc
+            end do
+        end do
+
+        !------
+        ! to be continued
+        !------
+        
+    end subroutine get_C_ele
+
     subroutine get_Jacobi(ele, Jacobis)
         type(element_info), intent(in) :: ele
         real(real_kind), intent(inout), dimension(:,:,:) :: Jacobis         ! Jacobi(n,:,:) means the Jacobi matrix

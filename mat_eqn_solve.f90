@@ -2,7 +2,53 @@ module mat_eqn_slove
     use solver_data
     implicit none
 
+    interface cholesky
+        module procedure cholesky_solve
+        module procedure cholesky_only
+    end interface
+
 contains
+    pure function back_sub(DL_T, b, unzo_li) result(x)
+        type(spa_sym_mat), intent(in) :: DL_T
+        real(real_kind), intent(in) :: b(:)
+        integer(ini_kind), optional, intent(in) :: unzo_li(:)
+        real(real_kind) x(size(b))
+
+        integer i, j
+        integer(ini_kind), allocatable :: unzero_li(:)
+        real(real_kind), allocatable :: y(:)
+        real(real_kind) temp
+
+        if(present(unzo_li)) then
+            unzero_li = unzo_li
+        else
+            allocate(unzero_li(size(b)))
+            do i = 1, size(b)
+                unzero_li(i) = i - DL_T%diag_pst(i+1) + DL_T%diag_pst(i) + 1
+            end do
+        end if
+
+        allocate(y(size(b)))
+        do i = 1, size(b)
+            temp = 0.0
+            do j = unzero_li(i), i-1
+                temp = temp + y(j) * DL_T%unzero(DL_T%diag_pst(i)+i-j)
+            end do
+            y(i) = (b(i) - temp) / DL_T%unzero(DL_T%diag_pst(i))
+        end do
+
+        do i = size(b), 1, -1
+            temp = 0.0
+            do j = size(b), i+1, -1
+                if(unzero_li(j) .gt. i) cycle
+                temp = temp + x(j) * DL_T%unzero(DL_T%diag_pst(j)+j-i)
+            end do
+            x(i) = y(i) - temp / DL_T%unzero(DL_T%diag_pst(i))
+        end do
+        deallocate(y, unzero_li)
+
+    end function back_sub
+
     subroutine solve_lin_eqn(mat,x,b,option)
         real(real_kind), intent(in) :: mat(:,:)
         real(real_kind), intent(in) :: b(:)
@@ -122,7 +168,7 @@ contains
         end do
     end subroutine LU_decmp
 
-    subroutine cholesky(mat, x, b)
+    subroutine cholesky_solve(mat, x, b)
         type(spa_sym_mat), intent(inout) :: mat
         real(real_kind), intent(inout) :: x(:)
         real(real_kind), intent(in) :: b(:)
@@ -139,7 +185,7 @@ contains
         ! integer(ini_kind) LK
         integer(ini_kind), allocatable :: unzero_line(:)
         real(real_kind) temp
-        real(real_kind), allocatable :: y(:)
+        ! real(real_kind), allocatable :: y(:)
 
         SI = size(mat%diag_pst) - 1
         allocate(unzero_line(SI))
@@ -181,26 +227,74 @@ contains
         !     end do
         ! end do
 
-        allocate(y(SI))
-        do i = 1, SI
-            temp = 0.0
-            do j = unzero_line(i), i-1
-                temp = temp + y(j) * mat%unzero(mat%diag_pst(i)+i-j)
-            end do
-            y(i) = (b(i) - temp) / mat%unzero(mat%diag_pst(i))
-        end do
+        ! allocate(y(SI))
+        ! do i = 1, SI
+        !     temp = 0.0
+        !     do j = unzero_line(i), i-1
+        !         temp = temp + y(j) * mat%unzero(mat%diag_pst(i)+i-j)
+        !     end do
+        !     y(i) = (b(i) - temp) / mat%unzero(mat%diag_pst(i))
+        ! end do
 
-        do i = SI, 1, -1
-            temp = 0.0
-            do j = SI, i+1, -1
-                if(unzero_line(j) .gt. i) cycle
-                temp = temp + x(j) * mat%unzero(mat%diag_pst(j)+j-i)
-            end do
-            x(i) = y(i) - temp / mat%unzero(mat%diag_pst(i))
-        end do
-        deallocate(y, unzero_line)
+        ! do i = SI, 1, -1
+        !     temp = 0.0
+        !     do j = SI, i+1, -1
+        !         if(unzero_line(j) .gt. i) cycle
+        !         temp = temp + x(j) * mat%unzero(mat%diag_pst(j)+j-i)
+        !     end do
+        !     x(i) = y(i) - temp / mat%unzero(mat%diag_pst(i))
+        ! end do
+        x = back_sub(mat, b)
+        deallocate(unzero_line)
 
-    end subroutine cholesky
+    end subroutine cholesky_solve
+
+    subroutine cholesky_only(mat)
+        type(spa_sym_mat), intent(inout) :: mat
+
+        integer(ini_kind) i             ! loop index
+        integer(ini_kind) j
+        integer(ini_kind) k
+        integer(ini_kind) p
+        integer(ini_kind) SI
+        integer(ini_kind) NU
+        integer(ini_kind) NL
+        integer(ini_kind) LI
+        integer(ini_kind) LP
+        ! integer(ini_kind) LK
+        integer(ini_kind), allocatable :: unzero_line(:)
+        real(real_kind) temp
+        ! real(real_kind), allocatable :: y(:)
+
+        SI = size(mat%diag_pst) - 1
+        allocate(unzero_line(SI))
+        do concurrent (i = 1:SI)
+            NU = mat%diag_pst(i+1) - 1
+            NL = mat%diag_pst(i)
+            LI = NL + i
+            unzero_line(i) = i - NU + NL
+            p = unzero_line(i)
+            do concurrent (j = NU:NL+1:-1)
+                LP = mat%diag_pst(p) + p
+                temp = 0.0
+                do concurrent (k = max(unzero_line(p), unzero_line(i)):p-1)
+                    temp = temp + mat%unzero(LI-k) * &
+                        mat%unzero(LP-k) / mat%unzero(mat%diag_pst(k))
+                end do
+                mat%unzero(j) = mat%unzero(j) - temp
+                p = p + 1
+            end do
+
+            temp = 0.0
+            do concurrent (k = unzero_line(i):i-1)
+                temp = temp + mat%unzero(LI-k) ** 2 / mat%unzero(mat%diag_pst(k))
+            end do
+            mat%unzero(NL) = mat%unzero(NL) - temp
+        end do
+        deallocate(unzero_line)
+
+    end subroutine cholesky_only
+
 
     function cholesky_mat(mat, b) result(x)
         real(real_kind), intent(in) :: mat(:,:)
@@ -268,7 +362,7 @@ contains
         deallocate(y,work_mat)
 
     end function cholesky_mat
-    
+
     real(real_kind) function det_2d(mat) result(det)
         real(real_kind), intent(in) :: mat(2,2)
     
@@ -276,26 +370,35 @@ contains
         
     end function det_2d
 
-    function mat_mul(mat1, mat2) result(mat_pro)
-        real(real_kind), intent(in) :: mat1(:,:), mat2(:,:)
-        real(real_kind), allocatable :: mat_pro(:,:)
-        integer :: m1
-        integer :: n1
-        integer :: m2
-        integer :: n2
+    function mat_mul(mat, vec) result(vec_pro)
+        type(spa_sym_mat), intent(in) :: mat
+        real(real_kind), intent(in) :: vec(:)
+        real(real_kind) :: vec_pro(size(vec))
+
+        integer :: m
+        integer :: n
         integer(ini_kind) i
         integer(ini_kind) j
-        m1 = size(mat1,1)
-        n1 = size(mat1,2)
-        m2 = size(mat2,1)
-        n2 = size(mat2,2)
-        allocate(mat_pro(m1,n2))
-        if(n1 .ne. m2) call error("matrix dimension not match")
+        integer(ini_kind), allocatable :: unzero_li(:)
+        real(real_kind) val
 
-        do i = 1, m1
-            do j = 1, n2
-                mat_pro(i,j) = sum(mat1(i,:) * mat2(:,j))
+        if(size(vec) .ne. size(mat%diag_pst)-1) error stop
+        allocate(unzero_li(size(vec)))
+        do i = 1, size(vec)
+            unzero_li(i) = i - mat%diag_pst(i+1) + mat%diag_pst(i) + 1
+        end do
+
+        do i = 1, size(vec)
+            val = 0.0
+            do j = unzero_li(i), i-1
+                val = val + vec(j) * mat%unzero(mat%diag_pst(i)+i-j)
             end do
+            val = val + vec(i) * mat%unzero(mat%diag_pst(i))
+            do j = i+1, size(vec)
+                if(unzero_li(j) .gt. i) cycle
+                val = val + mat%unzero(mat%diag_pst(j)+j-i) * vec(j)
+            end do
+            vec_pro(i) = val
         end do
 
     end function mat_mul

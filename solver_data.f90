@@ -9,6 +9,7 @@ module solver_data
     ! matrix for solving
     type(spa_sym_mat) :: stiff_mat                          ! stiffness matrix
     type(spa_sym_mat) :: heat_cdt_mat                       ! heat conduction matrix
+    type(spa_sym_mat) :: Capacity_mat                       ! heat capacity matrix
     real(real_kind), allocatable :: temper_force_vec(:)     ! the temperature force vector
     real(real_kind), allocatable :: force_vec(:)
     type(bdr) given_temp

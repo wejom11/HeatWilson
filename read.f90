@@ -224,6 +224,10 @@ contains
                     read(line_msg,*) val
                     ele_mater_lib(number)%alpha = val
 
+                case("c")
+                    read(line_msg,*) val
+                    ele_mater_lib(number)%c = val
+
                 case("END")
                     read(line_msg,*) str
                     if(str .eq. "MATERIALS") ex = .true.

@@ -4,6 +4,32 @@ module solver_kernel
     implicit none
     
 contains
+    subroutine giventemp_bdr_KP(K, P)
+        type(spa_sym_mat), optional, intent(inout) :: K
+        real(real_kind), optional, intent(inout) :: P(:)
+
+        logical :: is_K
+        logical :: is_P
+        integer(ini_kind) i
+        real(real_kind) max_val
+
+        if(present(K)) is_K = .true.
+        if(present(P)) is_P = .true.
+
+        max_val = abs(heat_cdt_mat%unzero(1))
+        do i = 2, size(heat_cdt_mat%diag_pst)
+            if (abs(heat_cdt_mat%unzero(i)) .gt. max_val) max_val = abs(heat_cdt_mat%unzero(i))
+        end do
+        max_val = max_val * 1e6
+
+        do i = 1, size(given_temp%bdr_locate)
+            heat_cdt_mat%unzero(heat_cdt_mat%diag_pst(given_temp%bdr_locate(i))) = max_val
+            temper_force_vec(given_temp%bdr_locate(i)) = max_val*given_temp%bdr_info(i,1)
+        end do
+    
+        
+    end subroutine giventemp_bdr_KP
+
     subroutine temp_static
         integer(ini_kind) i
         real(real_kind) max_val
@@ -18,7 +44,7 @@ contains
             do i = 2, size(heat_cdt_mat%diag_pst)
                 if (abs(heat_cdt_mat%unzero(i)) .gt. max_val) max_val = abs(heat_cdt_mat%unzero(i))
             end do
-            max_val = max_val * 1e6
+            max_val = max_val * 1e10
 
             do i = 1, size(given_temp%bdr_locate)
                 heat_cdt_mat%unzero(heat_cdt_mat%diag_pst(given_temp%bdr_locate(i))) = max_val
@@ -29,6 +55,69 @@ contains
         call cholesky(heat_cdt_mat, temp_solved, temper_force_vec)
 
     end subroutine temp_static
+
+    subroutine temp_instant
+        real(real_kind) :: dt = 0.02
+        real(real_kind) :: tolerance = 1e-10
+        real(real_kind) max_val
+        type(spa_sym_mat) K_bar
+        type(spa_sym_mat) Q_bar
+        real(real_kind), allocatable :: Q_vecbar(:)
+        real(real_kind), allocatable :: temp_n(:)
+        real(real_kind), allocatable :: temp_np1(:)
+        real(real_kind), allocatable :: d_temp(:)
+        logical :: done = .false.
+
+        integer(ini_kind) i
+
+        allocate(temp_n(size(nodecoord2d,2)),temp_np1(size(nodecoord2d,2)))
+        temp_n = temp_init
+        if(allocated(heat_cdt_mat%unzero)) then
+            heat_cdt_mat%unzero = 0.0
+        else
+            call init_mat
+        end if
+        do i = 1, size(elements)
+            call init_int(elements(i))
+            call get_HCM_ele(elements(i))
+            call get_C_ele(elements(i))
+        end do
+        K_bar%diag_pst = heat_cdt_mat%diag_pst
+        Q_bar%diag_pst = heat_cdt_mat%diag_pst
+        K_bar%unzero = Capacity_mat%unzero / dt + theta * heat_cdt_mat%unzero
+        Q_bar%unzero = Capacity_mat%unzero / dt + (theta - 1) * heat_cdt_mat%unzero
+
+        max_val = abs(K_bar%unzero(1))
+        do i = 2, size(K_bar%diag_pst)
+            if (abs(K_bar%unzero(i)) .gt. max_val) max_val = abs(K_bar%unzero(i))
+        end do
+        max_val = max_val * 1e10
+        ! modify K_bar
+        do i = 1, size(given_temp%bdr_locate)
+            K_bar%unzero(K_bar%diag_pst(given_temp%bdr_locate(i))) = max_val
+        end do
+
+        call cholesky(K_bar)
+
+        do while(.not. done)
+            Q_vecbar = mat_mul(Q_bar, temp_n)
+            do i = 1, size(given_temp%bdr_locate)
+                Q_vecbar(given_temp%bdr_locate(i)) = max_val * given_temp%bdr_info(i,1)
+            end do
+
+            temp_np1 = back_sub(K_bar, Q_vecbar)
+
+            d_temp = abs(temp_np1 - temp_n)
+            if(all(d_temp .le. tolerance)) then
+                temp_solved = temp_np1
+                done = .true.
+            else
+                temp_n = temp_np1
+            end if
+        end do
+        
+
+    end subroutine temp_instant
 
     subroutine Thermal_Stress
         integer(ini_kind) i
@@ -105,7 +194,8 @@ contains
             end do
         end do
         deallocate(matrix)
-        allocate(heat_cdt_mat%diag_pst(total_node+1), stiff_mat%diag_pst(2*total_node+1))
+        allocate(heat_cdt_mat%diag_pst(total_node+1), stiff_mat%diag_pst(2*total_node+1), &
+            Capacity_mat%diag_pst(total_node+1))
         heat_cdt_mat%diag_pst(1) = 1
         stiff_mat%diag_pst(1) = 1
         do i = 1, total_node
@@ -118,10 +208,14 @@ contains
         deallocate(lenth)
 
         allocate(heat_cdt_mat%unzero(heat_cdt_mat%diag_pst(total_node+1)-1), &
-            stiff_mat%unzero(stiff_mat%diag_pst(2*total_node+1)-1))
+            stiff_mat%unzero(stiff_mat%diag_pst(2*total_node+1)-1), &
+            Capacity_mat%unzero(Capacity_mat%diag_pst(total_node+1)-1))
 
         heat_cdt_mat%unzero = 0.0
         stiff_mat%unzero = 0.0
+
+
+        Capacity_mat = heat_cdt_mat
         
     end subroutine init_mat
 

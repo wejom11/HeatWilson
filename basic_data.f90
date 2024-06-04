@@ -13,6 +13,7 @@ module basic_data
     integer(4), parameter :: ctr_file_io = 11
     integer(4), parameter :: check = 22
     real(real_kind), parameter :: real_eps = epsilon(1.0_real_kind)
+    real(real_kind), parameter :: theta = 2.0/3.0   ! Galerking
 
     ! define the Gaussian point and its weight
     real(real_kind), parameter :: gauss_coord2(2) = [-1.0_real_kind / sqrt(3.0_real_kind), 1.0_real_kind / sqrt(3.0_real_kind)]
@@ -34,6 +35,7 @@ module basic_data
         real(real_kind) static_k                            ! the constant of the coefficient of heat conduction
         real(real_kind) rho                                 ! the desnity
         real(real_kind) alpha
+        real(real_kind) c
     end type material
 
     type geometry
@@ -93,7 +95,7 @@ module basic_data
         type(ele_bdr_info) :: ebi
     end type element_info
 
-    real(real_kind) :: temp_init = 40
+    real(real_kind) :: temp_init = 0
     real(real_kind), allocatable :: nodecoord2d(:,:)                ! node coordinate 2d
     real(real_kind), allocatable :: node_temperature(:)             ! node initial temperature 2d
     type(ele_type_info), target :: ele_type_lib(ele_type_num)       ! the assemble of the element types
