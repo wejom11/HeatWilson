@@ -11,7 +11,7 @@ module basic_data
     integer(4), parameter :: word_kind = 32
     integer(4), parameter :: line_kind = 128
     integer(4), parameter :: ctr_file_io = 11
-    integer(4), parameter :: check = 22
+    integer(4), parameter :: output_file_io = 22
     real(real_kind), parameter :: real_eps = epsilon(1.0_real_kind)
     real(real_kind), parameter :: theta = 2.0/3.0   ! Galerking
 

@@ -357,10 +357,43 @@ contains
 
     end subroutine get_FV_ele
 
-    subroutine get_wilson(ele_info, K_uubar, P_ubar)
+    subroutine get_wilson_u(ele_info, K_uubar, P_ubar)
         type(element_info), intent(inout) :: ele_info
         real(real_kind), intent(inout) :: K_uubar(:,:)
         real(real_kind), intent(inout) :: P_ubar(:)
+
+        integer(4) wi_dof
+        integer(4) nod_num
+        integer(ini_kind) i
+        real(real_kind), allocatable :: K_ua(:,:)
+        real(real_kind), allocatable :: K_au(:,:)
+        real(real_kind), allocatable :: K_aa(:,:)
+        real(real_kind), allocatable :: P_a(:)
+
+        nod_num = ele_info%this_eti%node_num
+        wi_dof = ele_info%this_eti%wilson_dof
+
+        allocate(K_ua(2*nod_num, 2*wi_dof), K_aa(2*wi_dof, 2*wi_dof) &
+            , P_a(2*wi_dof))
+
+        call get_wilson_a(ele_info, K_aa, K_ua, P_a)
+
+        K_au = transpose(K_ua)
+        do i = 1, 2*nod_num
+            K_au(:,i) = cholesky_mat(K_aa, K_au(:,i))
+        end do
+        P_a = cholesky_mat(K_aa, P_a)
+        K_uubar = matmul(K_ua, K_au)
+        P_ubar = matmul(K_ua, P_a)
+        deallocate(K_aa, K_au, K_ua, P_a)
+        
+    end subroutine get_wilson_u
+
+    subroutine get_wilson_a(ele_info, K_aa, K_ua, P_a)
+        type(element_info), intent(inout) :: ele_info
+        real(real_kind), intent(inout) :: K_aa(:,:)
+        real(real_kind), intent(inout) :: K_ua(:,:)
+        real(real_kind), intent(inout) :: P_a(:)
 
         integer(4) wi_dof
         integer(4) nod_num
@@ -383,10 +416,6 @@ contains
         real(real_kind) Nij_xy              ! dN_i/dx * dN_j/dy
         real(real_kind) Nij_yx              ! dN_i/dy * dN_j/dx
         real(real_kind) val
-        real(real_kind), allocatable :: K_ua(:,:)
-        real(real_kind), allocatable :: K_au(:,:)
-        real(real_kind), allocatable :: K_aa(:,:)
-        real(real_kind), allocatable :: P_a(:)
         real(real_kind), allocatable :: temp_ele(:)
         real(real_kind), allocatable :: diff_shape2d_0(:,:,:)
         real(real_kind), allocatable :: Jaco_0(:,:)
@@ -399,8 +428,145 @@ contains
             allocate(ele_info%epi%intp_temp(int_num))
         end if
 
-        allocate(K_ua(2*nod_num, 2*wi_dof), K_aa(2*wi_dof, 2*wi_dof) &
-            , P_a(2*wi_dof), diff_shape2d_0(dof, wi_dof, int_num), &
+        allocate(diff_shape2d_0(dof, wi_dof, int_num), &
+            Jaco_0(dof, dof), temp_ele(nod_num))
+        E = ele_info%epi%ele_mater%E
+        v = ele_info%epi%ele_mater%v
+        alpha = ele_info%epi%ele_mater%alpha
+        val_1 = (1 - v)/2.0
+        val_2 = E/(1 - v**2)
+        val_3 = alpha * E / (1 - v)
+        Jaco_0 = Jacobi(ele_info,int_num+1)
+        wilson_det = det_2d(Jaco_0)
+        K_aa = 0.0
+        K_ua = 0.0
+        P_a = 0.0
+
+        do j = 1, int_num
+            do i = 1, wi_dof
+                call solve_lin_eqn(Jaco_0, diff_shape2d_0(:,i,j), ele_info%eii%diff_shape2d(:,i+nod_num,j))
+            end do
+        end do
+        do i = 1, nod_num
+            temp_ele(i) = temp_solved(ele_info%epi%node_tags(i))
+        end do
+
+        do j = 1, wi_dof
+            jj = j*2
+            jbar = j + nod_num
+            do i = 1,nod_num
+                ii = 2*i
+                Nij_xx = 0.0
+                Nij_xy = 0.0
+                Nij_yx = 0.0
+                Nij_yy = 0.0
+                do k = 1, int_num
+                    Nij_xx = Nij_xx + ele_info%eii%diff_shape2d_local(1,i,k) * ele_info%eii%diff_shape2d_local(1,jbar,k) &
+                        * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+                    Nij_yy = Nij_yy + ele_info%eii%diff_shape2d_local(2,i,k) * ele_info%eii%diff_shape2d_local(2,jbar,k) &
+                        * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+                    Nij_xy = Nij_xy + ele_info%eii%diff_shape2d_local(1,i,k) * ele_info%eii%diff_shape2d_local(2,jbar,k) &
+                        * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+                    Nij_yx = Nij_yx + ele_info%eii%diff_shape2d_local(2,i,k) * ele_info%eii%diff_shape2d_local(1,jbar,k) &
+                        * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+                end do
+                ! if(i .le. nod_num) then
+                K_ua(ii-1,jj-1) = (Nij_xx + val_1 * Nij_yy)
+                K_ua(ii-1,jj) = (v * Nij_xy + val_1 * Nij_yx)
+                K_ua(ii,jj-1) = (v * Nij_yx + val_1 * Nij_xy)
+                K_ua(ii,jj) = (Nij_yy + val_1 * Nij_xx)
+                ! else
+                !     K_aa(2*ii-1,2*jj-1) = val_2 * (Nij_xx + val_1 * Nij_yy)
+                !     K_aa(2*ii-1,2*jj) = val_2 * (v * Nij_xy + val_1 * Nij_yx)
+                !     if(i .ne. j) K_aa(2*ii,2*jj-1) = val_2 * (v * Nij_yx + val_1 * Nij_xy)
+                !     K_aa(2*ii,2*jj) = val_2 * (Nij_yy + val_1 * Nij_xx)
+                ! end if
+                
+            end do
+
+            do i = 1, j
+                ibar = i + nod_num
+                ii = 2*i
+                Nij_xx = 0.0
+                Nij_xy = 0.0
+                Nij_yx = 0.0
+                Nij_yy = 0.0
+                do k = 1, int_num
+                    Nij_xx = Nij_xx + ele_info%eii%diff_shape2d_local(1,ibar,k) * ele_info%eii%diff_shape2d_local(1,jbar,k) &
+                        * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+                    Nij_yy = Nij_yy + ele_info%eii%diff_shape2d_local(2,ibar,k) * ele_info%eii%diff_shape2d_local(2,jbar,k) &
+                        * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+                    Nij_xy = Nij_xy + ele_info%eii%diff_shape2d_local(1,ibar,k) * ele_info%eii%diff_shape2d_local(2,jbar,k) &
+                        * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+                    Nij_yx = Nij_yx + ele_info%eii%diff_shape2d_local(2,ibar,k) * ele_info%eii%diff_shape2d_local(1,jbar,k) &
+                        * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+                end do
+
+                K_aa(ii-1,jj-1) = (Nij_xx + val_1 * Nij_yy)
+                K_aa(ii-1,jj) = (v * Nij_xy + val_1 * Nij_yx)
+                if(i .ne. j) K_aa(ii,jj-1) = (v * Nij_yx + val_1 * Nij_xy)
+                K_aa(ii,jj) = (Nij_yy + val_1 * Nij_xx)
+            end do
+
+            Nij_xx = 0.0
+            Nij_yy = 0.0
+            do i = 1, int_num
+                val = -temp_init
+                do k = 1, nod_num
+                    val = val + ele_info%eii%shape2d(k,i) * temp_ele(k)
+                end do
+                ele_info%epi%intp_temp(i) = val
+                Nij_xx = Nij_xx + ele_info%eii%diff_shape2d_local(1,jbar,i) * val * &
+                    ele_info%eii%inte_coord(i)%weight * ele_info%eii%inte_coord(i)%det_J
+                Nij_yy = Nij_yy + ele_info%eii%diff_shape2d_local(2,jbar,i) * val * &
+                    ele_info%eii%inte_coord(i)%weight * ele_info%eii%inte_coord(i)%det_J
+            end do
+            P_a(jj-1) = val_3 * Nij_xx
+            P_a(jj) = val_3 * Nij_yy
+        end do
+        K_ua = K_ua * val_2
+        K_aa = K_aa * val_2
+        deallocate(Jaco_0, temp_ele, diff_shape2d_0)
+        
+    end subroutine get_wilson_a
+
+    subroutine get_wilson_a_only(ele_info, K_aa, K_ua, P_a)
+        type(element_info), intent(in) :: ele_info
+        real(real_kind), intent(inout) :: K_aa(:,:)
+        real(real_kind), intent(inout) :: K_ua(:,:)
+        real(real_kind), intent(inout) :: P_a(:)
+
+        integer(4) wi_dof
+        integer(4) nod_num
+        integer(4) dof
+        integer(4) int_num
+        integer(ini_kind) i, j, k
+        integer(ini_kind) ibar
+        integer(ini_kind) jbar
+        integer(ini_kind) ii
+        integer(ini_kind) jj
+        real(real_kind) wilson_det
+        real(real_kind) E
+        real(real_kind) v
+        real(real_kind) alpha
+        real(real_kind) val_1
+        real(real_kind) val_2
+        real(real_kind) val_3
+        real(real_kind) Nij_xx              ! dN_i/dx * dN_j/dx
+        real(real_kind) Nij_yy              ! dN_i/dy * dN_j/dy
+        real(real_kind) Nij_xy              ! dN_i/dx * dN_j/dy
+        real(real_kind) Nij_yx              ! dN_i/dy * dN_j/dx
+        real(real_kind) val
+        real(real_kind), allocatable :: temp_ele(:)
+        real(real_kind), allocatable :: diff_shape2d_0(:,:,:)
+        real(real_kind), allocatable :: Jaco_0(:,:)
+
+        nod_num = ele_info%this_eti%node_num
+        dof = ele_info%this_eti%dof
+        int_num = ele_info%eii%intep_num
+        wi_dof = ele_info%this_eti%wilson_dof
+
+        allocate(diff_shape2d_0(dof, wi_dof, int_num), &
             Jaco_0(dof, dof), temp_ele(nod_num))
         E = ele_info%epi%ele_mater%E
         v = ele_info%epi%ele_mater%v
@@ -487,7 +653,6 @@ contains
                 do k = 1, nod_num
                     val = val + ele_info%eii%shape2d(k,i) * temp_ele(k)
                 end do
-                ele_info%epi%intp_temp(i) = val
                 Nij_xx = Nij_xx + ele_info%eii%diff_shape2d_local(1,jbar,i) * val * &
                     ele_info%eii%inte_coord(i)%weight * ele_info%eii%inte_coord(i)%det_J
                 Nij_yy = Nij_yy + ele_info%eii%diff_shape2d_local(2,jbar,i) * val * &
@@ -496,15 +661,10 @@ contains
             P_a(jj-1) = val_3 * Nij_xx
             P_a(jj) = val_3 * Nij_yy
         end do
-        K_au = transpose(K_ua)
-        do i = 1, 2*nod_num
-            K_au(:,i) = cholesky_mat(K_aa, K_au(:,i))
-        end do
-        P_a = cholesky_mat(K_aa, P_a)
-        K_uubar = matmul(K_ua, K_au) * val_2 * wilson_det ** 2
-        P_ubar = matmul(K_ua, P_a) * wilson_det
-        deallocate(K_aa, K_au, K_ua, P_a, Jaco_0, diff_shape2d_0, temp_ele)
+        K_ua = K_ua * wilson_det * val_2
+        K_aa = K_aa * val_2
+        deallocate(Jaco_0, temp_ele, diff_shape2d_0)
         
-    end subroutine get_wilson
+    end subroutine get_wilson_a_only
 
 end module get_matrix

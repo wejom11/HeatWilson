@@ -130,7 +130,7 @@ contains
         node_num = elements(1)%this_eti%node_num
         allocate(K_uu(2*node_num, 2*node_num), P_u(2*node_num))
         do i = 1, size(elements)
-            call get_wilson(elements(i), K_uu, P_u)
+            call get_wilson_u(elements(i), K_uu, P_u)
             call get_K_ele(elements(i), K_uu)
             call get_FV_ele(elements(i), P_u)
         end do

@@ -1,5 +1,5 @@
 module output
-    use mat_eqn_slove
+    use get_matrix
     implicit none
     
 contains
@@ -36,6 +36,7 @@ contains
         integer(ini_kind) j
         integer(4) node_num
         integer(4) int_num
+        integer(4) wi_dof
         integer(ini_kind), allocatable :: ele_nt(:)
         real(real_kind) E
         real(real_kind) v
@@ -47,6 +48,10 @@ contains
         real(real_kind), allocatable :: N_Shape(:,:)
         real(real_kind), allocatable :: inter_p(:,:)
         real(real_kind), allocatable :: nd_crd(:,:)
+        real(real_kind), allocatable :: K_ua(:,:)
+        real(real_kind), allocatable :: K_au(:,:)
+        real(real_kind), allocatable :: K_aa(:,:)
+        real(real_kind), allocatable :: P_a(:)
 
         node_num = ele_info%this_eti%node_num
         int_num = 4
@@ -59,6 +64,11 @@ contains
         allocate(ele_nt(node_num), ele_strain(3,int_num), N_Shape(int_num, int_num), &
             ele_stress(3,int_num))
         ele_nt = ele_info%epi%node_tags
+
+        ! wilson dof
+        allocate(K_ua(2*node_num, 2*wi_dof), K_aa(2*wi_dof, 2*wi_dof) &
+            , P_a(2*wi_dof))
+
         ele_strain = 0.0
         ele_stress = 0.0
         do j = 1, int_num
@@ -123,8 +133,9 @@ contains
         
     
         integer(ini_kind) i,j,k
-        integer(ini_kind) NUM_ELE_NODE
+        integer(ini_kind) node_num
         integer(ini_kind) int_num
+        integer(4) wi_dof
         integer(ini_kind), allocatable :: ele_nt(:)
         real(real_kind) v
         real(real_kind) E
@@ -135,34 +146,66 @@ contains
         real(real_kind), allocatable :: ele_stress(:)
         REAL(REAL_KIND), allocatable :: N(:,:)
         REAL(REAL_KIND), allocatable :: NN(:,:)
-        REAL(REAL_KIND), allocatable :: RH(:)             
+        REAL(REAL_KIND), allocatable :: RH(:)   
+        real(real_kind), allocatable :: K_ua(:,:)
+        real(real_kind), allocatable :: K_au(:,:)
+        real(real_kind), allocatable :: K_aa(:,:)
+        real(real_kind), allocatable :: P_a(:)
+        real(real_kind), allocatable :: a_dof(:)
+        real(real_kind), allocatable :: nodel_disp(:)
 
         v = ele_info%epi%ele_mater%v
         E = ele_info%epi%ele_mater%E
         alpha = ele_info%epi%ele_mater%alpha
         val = E / (1 - v**2)
-        NUM_ELE_NODE = ele_info%this_eti%node_num
+        node_num = ele_info%this_eti%node_num
         int_num = ele_info%eii%intep_num
+        wi_dof = ele_info%this_eti%wilson_dof
         D = 0.0
         D(1,1) = 1.0
         D(1,2) = v
         D(2,1) = v
         D(2,2) = 1.0
         D(3,3) = (1 - v)/2.0
-        
-        allocate(ele_strain(3,int_num), ele_stress(3*NUM_ELE_NODE), N(3,3*NUM_ELE_NODE), &
-            NN(3*NUM_ELE_NODE, 3*NUM_ELE_NODE), RH(3*NUM_ELE_NODE), ele_nt(NUM_ELE_NODE))
+
+        allocate(ele_strain(3,int_num), ele_stress(3*node_num), N(3,3*node_num), &
+            NN(3*node_num, 3*node_num), RH(3*node_num), ele_nt(node_num), &
+            nodel_disp(2*node_num))
         ele_nt = ele_info%epi%node_tags
+
+        do i = 1, node_num
+            nodel_disp(2*i-1) = disp_solved(2*ele_nt(i)-1)
+            nodel_disp(2*i) = disp_solved(2*ele_nt(i))
+        end do
+
+        ! wilson dof
+        allocate(K_ua(2*node_num, 2*wi_dof), K_aa(2*wi_dof, 2*wi_dof) &
+            , P_a(2*wi_dof), a_dof(2*wi_dof), K_au(2*wi_dof, 2*node_num))
+        call get_wilson_a_only(ele_info, K_aa, K_ua, P_a)
+        K_au = transpose(K_ua)
+        a_dof = cholesky_mat(K_aa, P_a - matmul(K_au, nodel_disp))
+        deallocate(K_aa, K_au, K_ua, P_a)
+
         ele_strain = 0.0
         do j = 1, int_num
-            do i = 1, NUM_ELE_NODE
+            do i = 1, node_num
                 ele_strain(1,j) = ele_strain(1,j) + ele_info%eii%diff_shape2d_local(1,i,j) * &
-                    disp_solved(2*ele_nt(i) - 1)
+                    nodel_disp(2*i-1)
                 ele_strain(2,j) = ele_strain(2,j) + ele_info%eii%diff_shape2d_local(2,i,j) * &
-                    disp_solved(2*ele_nt(i))
+                    nodel_disp(2*i)
                 ele_strain(3,j) = ele_strain(3,j) + ele_info%eii%diff_shape2d_local(1,i,j) * &
-                    disp_solved(2*ele_nt(i)) + ele_info%eii%diff_shape2d_local(2,i,j) * &
-                    disp_solved(2*ele_nt(i) - 1)
+                    nodel_disp(2*i) + ele_info%eii%diff_shape2d_local(2,i,j) * &
+                    nodel_disp(2*i-1)
+            end do
+            do i = node_num + 1, node_num + wi_dof
+                k = i - node_num
+                ele_strain(1,j) = ele_strain(1,j) + ele_info%eii%diff_shape2d_local(1,i,j) * &
+                    a_dof(2*k-1)
+                ele_strain(2,j) = ele_strain(2,j) + ele_info%eii%diff_shape2d_local(2,i,j) * &
+                    a_dof(2*k)
+                ele_strain(3,j) = ele_strain(3,j) + ele_info%eii%diff_shape2d_local(1,i,j) * &
+                    a_dof(2*k) + ele_info%eii%diff_shape2d_local(2,i,j) * &
+                    a_dof(2*k-1)                
             end do
             ele_strain(1,j) = ele_strain(1,j) - alpha * ele_info%epi%intp_temp(j)
             ele_strain(2,j) = ele_strain(2,j) - alpha * ele_info%epi%intp_temp(j)
@@ -177,7 +220,7 @@ contains
         DO i = 1, int_num
            ! CONSTRUCT SHAPE FUNCTION  
            N = 0.0
-           DO j = 1, NUM_ELE_NODE
+           DO j = 1, node_num
               DO k = 1, 3
                  N(k,(j - 1) * 3 + k) = ele_info%eii%shape2d(J,I)
               ENDDO      
@@ -191,16 +234,32 @@ contains
         ENDDO   
         
         call solve_lin_eqn(NN, ele_stress, RH)
-        ! CALL INV(NN, NUM_ELE_NODE * 3)
+        ! CALL INV(NN, node_num * 3)
         ! ELE_NODAL_STRAIN = MATMUL(NN, RH)
         
         !-- UPDATE THE GLOBAL NODAL STRESS VECTOR --
-        DO i = 1, NUM_ELE_NODE
+        DO i = 1, node_num
            j = ele_nt(i)
            NODAL_STRESS(:,j) = NODAL_STRESS(:,j) + MATMUL(D, ele_stress((i-1)*3 + 1:i*3)) * val
            ADJ_ELE(j) = ADJ_ELE(j) + 1
         ENDDO
         
     END SUBROUTINE STRESS_NODAL_RECTANGLE
+
+    subroutine write2file
+        integer(ini_kind) i
+
+        open(output_file_io, file = "output.out", status = "new", action = "write")
+        write(output_file_io, *) "!NODE     X       Y       T"
+        do i = 1, size(nodecoord2d,2)
+            write(output_file_io, *) i, nodecoord2d(:,i), temp_solved(i)
+        end do
+        write(output_file_io, *) "!NODE       Sx      Sy      Sxy"
+        do i = 1, size(nodecoord2d,2)
+            write(output_file_io, *) i, nodal_stress(:,i)
+        end do
+        close(output_file_io)
+        
+    end subroutine write2file
     
 end module output

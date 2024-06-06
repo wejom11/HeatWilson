@@ -7,6 +7,11 @@ module mat_eqn_slove
         module procedure cholesky_only
     end interface
 
+    interface mat_mul
+        module procedure mat_mul_spa
+        module procedure mat_mul_sym
+    end interface
+
 contains
     pure function back_sub(DL_T, b, unzo_li) result(x)
         type(spa_sym_mat), intent(in) :: DL_T
@@ -370,7 +375,7 @@ contains
         
     end function det_2d
 
-    function mat_mul(mat, vec) result(vec_pro)
+    pure function mat_mul_spa(mat, vec) result(vec_pro)
         type(spa_sym_mat), intent(in) :: mat
         real(real_kind), intent(in) :: vec(:)
         real(real_kind) :: vec_pro(size(vec))
@@ -401,7 +406,31 @@ contains
             vec_pro(i) = val
         end do
 
-    end function mat_mul
+    end function mat_mul_spa
+
+    pure function mat_mul_sym(mat, vec) result(vec_pro)
+        real(real_kind), intent(in) :: mat(:,:)
+        real(real_kind), intent(in) :: vec(:)
+        real(real_kind) :: vec_pro(size(vec))
+    
+        integer(ini_kind) dim
+        integer(ini_kind) i, j
+        real(real_kind) val
+
+        dim = size(vec)
+        if(dim .ne. size(mat,2)) error stop
+        do i = 1, dim
+            val = 0.0
+            do j = 1, i
+                val = val + vec(j) * mat(j,i)
+            end do
+            do j = i+1, dim
+                val = val + vec(j) * mat(i,j)
+            end do
+            vec_pro(i) = val
+        end do
+        
+    end function mat_mul_sym
 
     ! sym upper mat
     subroutine sym_mat(mat)
