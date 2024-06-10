@@ -246,15 +246,20 @@ contains
         
     END SUBROUTINE STRESS_NODAL_RECTANGLE
 
-    subroutine write2file
+    subroutine write2file(proj)
+        character(*), intent(in) :: proj
+
         integer(ini_kind) i
 
-        open(output_file_io, file = "output.out", status = "new", action = "write")
-        write(output_file_io, *) "!NODE     X       Y       T"
+        open(output_file_io, file = trim(proj)//".OUT", status = "new", action = "write")
+        write(output_file_io, "(A)") " *** DISPLACEMENT ***"
+        write(output_file_io, *) "NODE     U       V       T"
         do i = 1, size(nodecoord2d,2)
-            write(output_file_io, *) i, nodecoord2d(:,i), temp_solved(i)
+            write(output_file_io, *) i, disp_solved(2*i-1), &
+                disp_solved(2*i), temp_solved(i)
         end do
-        write(output_file_io, *) "!NODE       Sx      Sy      Sxy"
+        write(output_file_io, "(A)") " *** NODAL STRESS ***"
+        write(output_file_io, *) "NODE       Sx      Sy      Sxy"
         do i = 1, size(nodecoord2d,2)
             write(output_file_io, *) i, nodal_stress(:,i)
         end do

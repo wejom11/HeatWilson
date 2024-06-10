@@ -469,12 +469,21 @@ contains
                         * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
                     Nij_yx = Nij_yx + ele_info%eii%diff_shape2d_local(2,i,k) * ele_info%eii%diff_shape2d_local(1,jbar,k) &
                         * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+
+                    ! Nij_xx = Nij_xx + ele_info%eii%diff_shape2d_local(1,i,k) * diff_shape2d_0(1,j,k) &
+                    !     * ele_info%eii%inte_coord(k)%weight
+                    ! Nij_yy = Nij_yy + ele_info%eii%diff_shape2d_local(2,i,k) * diff_shape2d_0(2,j,k) &
+                    !     * ele_info%eii%inte_coord(k)%weight
+                    ! Nij_xy = Nij_xy + ele_info%eii%diff_shape2d_local(1,i,k) * diff_shape2d_0(2,j,k) &
+                    !     * ele_info%eii%inte_coord(k)%weight
+                    ! Nij_yx = Nij_yx + ele_info%eii%diff_shape2d_local(2,i,k) * diff_shape2d_0(1,j,k) &
+                    !     * ele_info%eii%inte_coord(k)%weight
                 end do
                 ! if(i .le. nod_num) then
-                K_ua(ii-1,jj-1) = (Nij_xx + val_1 * Nij_yy)
-                K_ua(ii-1,jj) = (v * Nij_xy + val_1 * Nij_yx)
-                K_ua(ii,jj-1) = (v * Nij_yx + val_1 * Nij_xy)
-                K_ua(ii,jj) = (Nij_yy + val_1 * Nij_xx)
+                K_ua(ii-1,jj-1) = (Nij_xx + val_1 * Nij_yy)! * wilson_det
+                K_ua(ii-1,jj) = (v * Nij_xy + val_1 * Nij_yx)! * wilson_det
+                K_ua(ii,jj-1) = (v * Nij_yx + val_1 * Nij_xy)! * wilson_det
+                K_ua(ii,jj) = (Nij_yy + val_1 * Nij_xx)! * wilson_det
                 ! else
                 !     K_aa(2*ii-1,2*jj-1) = val_2 * (Nij_xx + val_1 * Nij_yy)
                 !     K_aa(2*ii-1,2*jj) = val_2 * (v * Nij_xy + val_1 * Nij_yx)
@@ -500,6 +509,15 @@ contains
                         * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
                     Nij_yx = Nij_yx + ele_info%eii%diff_shape2d_local(2,ibar,k) * ele_info%eii%diff_shape2d_local(1,jbar,k) &
                         * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+
+                    ! Nij_xx = Nij_xx + ele_info%eii%diff_shape2d_local(1,ibar,k) * diff_shape2d_0(1,j,k) &
+                    !     * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+                    ! Nij_yy = Nij_yy + ele_info%eii%diff_shape2d_local(2,ibar,k) * diff_shape2d_0(2,j,k) &
+                    !     * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+                    ! Nij_xy = Nij_xy + ele_info%eii%diff_shape2d_local(1,ibar,k) * diff_shape2d_0(2,j,k) &
+                    !     * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+                    ! Nij_yx = Nij_yx + ele_info%eii%diff_shape2d_local(2,ibar,k) * diff_shape2d_0(1,j,k) &
+                    !     * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
                 end do
 
                 K_aa(ii-1,jj-1) = (Nij_xx + val_1 * Nij_yy)
@@ -599,20 +617,29 @@ contains
                 Nij_yx = 0.0
                 Nij_yy = 0.0
                 do k = 1, int_num
-                    Nij_xx = Nij_xx + ele_info%eii%diff_shape2d_local(1,i,k) * diff_shape2d_0(1,j,k) &
-                        * ele_info%eii%inte_coord(k)%weight! * ele_info%eii%inte_coord(k)%det_J
-                    Nij_yy = Nij_yy + ele_info%eii%diff_shape2d_local(2,i,k) * diff_shape2d_0(2,j,k) &
-                        * ele_info%eii%inte_coord(k)%weight! * ele_info%eii%inte_coord(k)%det_J
-                    Nij_xy = Nij_xy + ele_info%eii%diff_shape2d_local(1,i,k) * diff_shape2d_0(2,j,k) &
-                        * ele_info%eii%inte_coord(k)%weight! * ele_info%eii%inte_coord(k)%det_J
-                    Nij_yx = Nij_yx + ele_info%eii%diff_shape2d_local(2,i,k) * diff_shape2d_0(1,j,k) &
-                        * ele_info%eii%inte_coord(k)%weight! * ele_info%eii%inte_coord(k)%det_J
+                    Nij_xx = Nij_xx + ele_info%eii%diff_shape2d_local(1,i,k) * ele_info%eii%diff_shape2d_local(1,jbar,k) &
+                        * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+                    Nij_yy = Nij_yy + ele_info%eii%diff_shape2d_local(2,i,k) * ele_info%eii%diff_shape2d_local(2,jbar,k) &
+                        * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+                    Nij_xy = Nij_xy + ele_info%eii%diff_shape2d_local(1,i,k) * ele_info%eii%diff_shape2d_local(2,jbar,k) &
+                        * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+                    Nij_yx = Nij_yx + ele_info%eii%diff_shape2d_local(2,i,k) * ele_info%eii%diff_shape2d_local(1,jbar,k) &
+                        * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+
+                    ! Nij_xx = Nij_xx + ele_info%eii%diff_shape2d_local(1,i,k) * diff_shape2d_0(1,j,k) &
+                    !     * ele_info%eii%inte_coord(k)%weight
+                    ! Nij_yy = Nij_yy + ele_info%eii%diff_shape2d_local(2,i,k) * diff_shape2d_0(2,j,k) &
+                    !     * ele_info%eii%inte_coord(k)%weight
+                    ! Nij_xy = Nij_xy + ele_info%eii%diff_shape2d_local(1,i,k) * diff_shape2d_0(2,j,k) &
+                    !     * ele_info%eii%inte_coord(k)%weight
+                    ! Nij_yx = Nij_yx + ele_info%eii%diff_shape2d_local(2,i,k) * diff_shape2d_0(1,j,k) &
+                    !     * ele_info%eii%inte_coord(k)%weight
                 end do
                 ! if(i .le. nod_num) then
-                K_ua(ii-1,jj-1) = (Nij_xx + val_1 * Nij_yy)
-                K_ua(ii-1,jj) = (v * Nij_xy + val_1 * Nij_yx)
-                K_ua(ii,jj-1) = (v * Nij_yx + val_1 * Nij_xy)
-                K_ua(ii,jj) = (Nij_yy + val_1 * Nij_xx)
+                K_ua(ii-1,jj-1) = (Nij_xx + val_1 * Nij_yy)! * wilson_det
+                K_ua(ii-1,jj) = (v * Nij_xy + val_1 * Nij_yx)! * wilson_det
+                K_ua(ii,jj-1) = (v * Nij_yx + val_1 * Nij_xy)! * wilson_det
+                K_ua(ii,jj) = (Nij_yy + val_1 * Nij_xx)! * wilson_det
                 ! else
                 !     K_aa(2*ii-1,2*jj-1) = val_2 * (Nij_xx + val_1 * Nij_yy)
                 !     K_aa(2*ii-1,2*jj) = val_2 * (v * Nij_xy + val_1 * Nij_yx)
@@ -638,6 +665,15 @@ contains
                         * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
                     Nij_yx = Nij_yx + ele_info%eii%diff_shape2d_local(2,ibar,k) * ele_info%eii%diff_shape2d_local(1,jbar,k) &
                         * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+
+                    ! Nij_xx = Nij_xx + ele_info%eii%diff_shape2d_local(1,ibar,k) * diff_shape2d_0(1,j,k) &
+                    !     * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+                    ! Nij_yy = Nij_yy + ele_info%eii%diff_shape2d_local(2,ibar,k) * diff_shape2d_0(2,j,k) &
+                    !     * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+                    ! Nij_xy = Nij_xy + ele_info%eii%diff_shape2d_local(1,ibar,k) * diff_shape2d_0(2,j,k) &
+                    !     * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
+                    ! Nij_yx = Nij_yx + ele_info%eii%diff_shape2d_local(2,ibar,k) * diff_shape2d_0(1,j,k) &
+                    !     * ele_info%eii%inte_coord(k)%weight * ele_info%eii%inte_coord(k)%det_J
                 end do
 
                 K_aa(ii-1,jj-1) = (Nij_xx + val_1 * Nij_yy)
@@ -661,7 +697,7 @@ contains
             P_a(jj-1) = val_3 * Nij_xx
             P_a(jj) = val_3 * Nij_yy
         end do
-        K_ua = K_ua * wilson_det * val_2
+        K_ua = K_ua * val_2
         K_aa = K_aa * val_2
         deallocate(Jaco_0, temp_ele, diff_shape2d_0)
         

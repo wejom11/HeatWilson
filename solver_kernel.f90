@@ -171,7 +171,10 @@ contains
 
         total_node = size(nodecoord2d,2)
         node_num = elements(1)%this_eti%node_num
-        allocate(temp_solved(total_node), disp_solved(2*total_node))
+        allocate(temp_solved(total_node), disp_solved(2*total_node), &
+            temper_force_vec(total_node), force_vec(2*total_node))
+        temper_force_vec = 0.0
+        force_vec = 0.0
         allocate(lenth(total_node), matrix(total_node, total_node))
         do i = 1, total_node
             do j = 1, total_node
