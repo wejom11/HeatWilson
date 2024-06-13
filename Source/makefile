@@ -8,6 +8,9 @@ get_matrix$(FPP_Suf) integration$(FPP_Suf) element$(FPP_Suf) read$(FPP_Suf) \
 solver_kernel$(FPP_Suf) output$(FPP_Suf)
 Mod_OBJ := $(Mod_SRS:%$(FPP_Suf)=%$(OBJ_Suf))
 Mod_MOD := $(Mod_SRS:%$(FPP_Suf)=%.mod)
+
+VPATH = ./data_mod:./mechanic:./solver:./inout
+
 HeatStress: HeatStress$(FPP_Suf) $(Mod_OBJ)
 	$(FC) $^ -o $@
 $(Mod_OBJ): %$(OBJ_Suf): %$(FPP_Suf)
