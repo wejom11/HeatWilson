@@ -32,8 +32,7 @@ contains
         type(element_info), intent(in) :: ele_info
         integer(4), intent(inout) :: adj_n(:)
     
-        integer(ini_kind) i
-        integer(ini_kind) j
+        integer(ini_kind) i, j, k
         integer(4) node_num
         integer(4) int_num
         integer(4) wi_dof
@@ -52,8 +51,11 @@ contains
         real(real_kind), allocatable :: K_au(:,:)
         real(real_kind), allocatable :: K_aa(:,:)
         real(real_kind), allocatable :: P_a(:)
+        real(real_kind), allocatable :: nodel_disp(:)
+        real(real_kind), allocatable :: a_dof(:)
 
         node_num = ele_info%this_eti%node_num
+        wi_dof = ele_info%this_eti%wilson_dof
         int_num = 4
         E = ele_info%epi%ele_mater%E
         v = ele_info%epi%ele_mater%v
@@ -62,24 +64,43 @@ contains
         val_2 = (1 - v) / 2
 
         allocate(ele_nt(node_num), ele_strain(3,int_num), N_Shape(int_num, int_num), &
-            ele_stress(3,int_num))
+            ele_stress(3,int_num), nodel_disp(2*node_num))
         ele_nt = ele_info%epi%node_tags
+
+        do i = 1, node_num
+            nodel_disp(2*i-1) = disp_solved(2*ele_nt(i)-1)
+            nodel_disp(2*i) = disp_solved(2*ele_nt(i))
+        end do
 
         ! wilson dof
         allocate(K_ua(2*node_num, 2*wi_dof), K_aa(2*wi_dof, 2*wi_dof) &
-            , P_a(2*wi_dof))
+            , P_a(2*wi_dof), a_dof(2*wi_dof), K_au(2*wi_dof, 2*node_num))
+        call get_wilson_a_only(ele_info, K_aa, K_ua, P_a)
+        K_au = transpose(K_ua)
+        a_dof = cholesky_mat(K_aa, P_a - matmul(K_au, nodel_disp))
+        deallocate(K_aa, K_au, K_ua, P_a)
 
         ele_strain = 0.0
         ele_stress = 0.0
         do j = 1, int_num
             do i = 1, node_num
                 ele_strain(1,j) = ele_strain(1,j) + ele_info%eii%diff_shape2d_local(1,i,j) * &
-                    disp_solved(2*ele_nt(i) - 1)
+                    nodel_disp(2*i-1)
                 ele_strain(2,j) = ele_strain(2,j) + ele_info%eii%diff_shape2d_local(2,i,j) * &
-                    disp_solved(2*ele_nt(i))
+                    nodel_disp(2*i)
                 ele_strain(3,j) = ele_strain(3,j) + ele_info%eii%diff_shape2d_local(1,i,j) * &
-                    disp_solved(2*ele_nt(i)) + ele_info%eii%diff_shape2d_local(2,i,j) * &
-                    disp_solved(2*ele_nt(i) - 1)
+                    nodel_disp(2*i) + ele_info%eii%diff_shape2d_local(2,i,j) * &
+                    nodel_disp(2*i-1)
+            end do
+            do i = node_num + 1, node_num + wi_dof
+                k = i - node_num
+                ele_strain(1,j) = ele_strain(1,j) + ele_info%eii%diff_shape2d_local(1,i,j) * &
+                    a_dof(2*k-1)
+                ele_strain(2,j) = ele_strain(2,j) + ele_info%eii%diff_shape2d_local(2,i,j) * &
+                    a_dof(2*k)
+                ele_strain(3,j) = ele_strain(3,j) + ele_info%eii%diff_shape2d_local(1,i,j) * &
+                    a_dof(2*k) + ele_info%eii%diff_shape2d_local(2,i,j) * &
+                    a_dof(2*k-1)                
             end do
             ele_strain(1,j) = ele_strain(1,j) - alpha * ele_info%epi%intp_temp(j)
             ele_strain(2,j) = ele_strain(2,j) - alpha * ele_info%epi%intp_temp(j)
