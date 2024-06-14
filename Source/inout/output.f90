@@ -77,7 +77,8 @@ contains
             , P_a(2*wi_dof), a_dof(2*wi_dof), K_au(2*wi_dof, 2*node_num))
         call get_wilson_a_only(ele_info, K_aa, K_ua, P_a)
         K_au = transpose(K_ua)
-        a_dof = cholesky_mat(K_aa, P_a - matmul(K_au, nodel_disp))
+        ! a_dof = cholesky_mat(K_aa, P_a - matmul(K_au, nodel_disp))
+        call solve_lin_eqn(K_aa,a_dof,P_a - matmul(K_au, nodel_disp),'ldl')
         deallocate(K_aa, K_au, K_ua, P_a)
 
         ele_strain = 0.0
@@ -204,7 +205,8 @@ contains
             , P_a(2*wi_dof), a_dof(2*wi_dof), K_au(2*wi_dof, 2*node_num))
         call get_wilson_a_only(ele_info, K_aa, K_ua, P_a)
         K_au = transpose(K_ua)
-        a_dof = cholesky_mat(K_aa, P_a - matmul(K_au, nodel_disp))
+        ! a_dof = cholesky_mat(K_aa, P_a - matmul(K_au, nodel_disp))
+        call solve_lin_eqn(K_aa,a_dof,P_a - matmul(K_au, nodel_disp),'ldl')
         deallocate(K_aa, K_au, K_ua, P_a)
 
         ele_strain = 0.0
@@ -272,7 +274,7 @@ contains
 
         integer(ini_kind) i
 
-        open(output_file_io, file = trim(proj)//".OUT", status = "new", action = "write")
+        open(output_file_io, file = "../example/"//trim(proj)//".OUT", status = "new", action = "write")
         write(output_file_io, "(A)") " *** DISPLACEMENT ***"
         write(output_file_io, *) "NODE     U       V       T"
         do i = 1, size(nodecoord2d,2)

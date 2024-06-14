@@ -380,9 +380,11 @@ contains
 
         K_au = transpose(K_ua)
         do i = 1, 2*nod_num
-            K_au(:,i) = cholesky_mat(K_aa, K_au(:,i))
+            ! K_au(:,i) = cholesky_mat(K_aa, K_au(:,i))
+            call solve_lin_eqn(K_aa,K_au(:,i),K_au(:,i),'ldl')
         end do
-        P_a = cholesky_mat(K_aa, P_a)
+        ! P_a = cholesky_mat(K_aa, P_a)
+        call solve_lin_eqn(K_aa,P_a,P_a,'ldl')
         K_uubar = matmul(K_ua, K_au)
         P_ubar = matmul(K_ua, P_a)
         deallocate(K_aa, K_au, K_ua, P_a)

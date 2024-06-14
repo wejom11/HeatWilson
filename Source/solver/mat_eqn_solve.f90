@@ -57,7 +57,7 @@ contains
     subroutine solve_lin_eqn(mat,x,b,option)
         real(real_kind), intent(in) :: mat(:,:)
         real(real_kind), intent(in) :: b(:)
-        character(word_kind), intent(in), optional :: option
+        character(*), intent(in), optional :: option
         real(real_kind),intent(inout) :: x(:)
         character(word_kind) options                ! storage the option information
         integer(ini_kind) :: n                      ! matrix dimension
@@ -111,6 +111,7 @@ contains
             deallocate(L,U,y, stat = error_msg)
             if(error_msg .ne. 0) call error("can't deallocate L,U,y!")
         case('ldl')
+            x = cholesky_mat(mat,b)
 
         case default
             call error('no such option: ' // trim(option) // "!")

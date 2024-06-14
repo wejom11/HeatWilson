@@ -22,7 +22,7 @@ program HeatStress
         print "(A)", "Input project name: "
         read *, proj_name
     endif
-    open(ctr_file_io, file = trim(proj_name)//".ctr", status = "old", action = "read")
+    open(ctr_file_io, file = "../example/"//trim(proj_name)//".ctr", status = "old", action = "read")
     call init_ele_type_lib
     call read_manager
     close(ctr_file_io)
